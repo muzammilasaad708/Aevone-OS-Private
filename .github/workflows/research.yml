@@ -1,0 +1,23 @@
+name: AEVONE Scheduled Research
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: aevone-research
+  cancel-in-progress: false
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python backend/worker.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

@@ -1,0 +1,51 @@
+AEVONE OS | MASTER AI BRAIN v2.0
+===============================
+
+Tumhara Supabase Owner login ALREADY setup hai.
+Naya account, owner SQL, ya database migration run karne ki zarurat NAHI.
+AI Brain ka cloud backend aur 3 chat tables pehle se LIVE deploy ho chuke hain.
+
+STEP 1: PRIVATE AI PROVIDER KEY SET KARO
+---------------------------------------
+1. Supabase kholo:
+   https://supabase.com/dashboard/project/fjlxxiqkyzesgywyxxgk/functions/secrets
+2. Edge Functions > Secrets > Add new secrets kholo.
+3. Secret Name: OPENROUTER_API_KEY
+4. Value: apni OpenRouter API key apne paas se paste karo.
+5. Save. Key ko frontend, code, GitHub, ya ChatGPT message mein mat daalo.
+6. Optional: GROQ_API_KEY, GEMINI_API_KEY, CEREBRAS_API_KEY add kar sakte ho.
+7. Paid calls default OFF hain. OpenRouter ke free models se shuru karo.
+
+STEP 2: LOCAL OS OPEN KARO
+-------------------------
+1. Pehle wala CMD server (localhost:4173) close karo.
+2. Is nayi ZIP ko alag folder mein extract karo.
+3. START_AEVONE_OS.bat double-click karo. Python 3 hona chahiye.
+4. Browser mein http://localhost:4173 khulega.
+5. Apne EXISTING Supabase Owner account se login karo.
+
+STEP 3: AI BRAIN TEST KARO
+-------------------------
+1. Sidebar -> AI Brain.
+2. Provider Auto (free waterfall) rehne do.
+3. Example: 'Write 3 brand positioning ideas for a new Karachi bakery.'
+4. Backend selected free-model provider ko message bhejega.
+5. Answer aur conversation dono Supabase mein save honge.
+
+ALTERNATIVE: APP KE ANDAR KEY SAVE KARNA
+---------------------------------------
+- tools/generate_vault_key.py locally run karo.
+- Uski value Supabase Edge Functions Secrets mein AEVONE_VAULT_KEY_B64
+  ke naam se set karo (private rakho).
+- AEVONE OS > Connectors > Manage se keys encrypted save karo.
+- Agar direct OPENROUTER_API_KEY secret bhi set hai to woh priority lega.
+
+IMPORTANT
+---------
+- Provider ki free quota ya API access zaroori hai. Free chat websites
+  ka access hamesha free API access nahi hota.
+- Hugging Face ka monthly free credit limited hai.
+- OpenAI / xAI / paid providers default se OFF hain.
+- Is ZIP mein koi private API key nahi daali gayi.
+- AI Brain ab Lead Generation ke liye foundation provide karta hai;
+  automatic verified business discovery abhi NEXT MODULE hai.

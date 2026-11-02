@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+*secrets*
+*_private*
+__pycache__/
+node_modules/
+.DS_Store

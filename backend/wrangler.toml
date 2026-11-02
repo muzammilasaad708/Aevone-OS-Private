@@ -1,0 +1,7 @@
+name = "aevone-research-gateway"
+main = "cloudflare-worker.mjs"
+compatibility_date = "2026-10-01"
+# Configure these values in Cloudflare dashboard. No secrets should be committed.
+# ALLOWED_ORIGIN = "https://<your-private-pages-url>.pages.dev"
+# SUPABASE_URL = "https://<project>.supabase.co"
+# SUPABASE_PUBLISHABLE_KEY = "sb_publishable_..." (public by design)
