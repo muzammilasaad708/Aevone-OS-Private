@@ -1,68 +1,117 @@
-"""AEVONE scheduled worker. Python stdlib, no fabricated lead records. Supply GitHub Secrets."""
-import os,json,urllib.request,urllib.parse,urllib.error,time,sys
+"""AEVONE research worker v3.2. Standard-library-only, no fabricated contacts.
+
+Supported live discovery: OpenStreetMap Overpass. Other repos in the UI are
+catalogue entries, not integrations. Never run unreviewed third-party code.
+"""
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
 from planner import plan
-BASE=os.environ.get('SUPABASE_URL','').rstrip('/')
-KEY=os.environ.get('SUPABASE_SERVICE_ROLE_KEY','')
-OVERPASS='https://overpass.kumi.systems/api/interpreter'
-MAX_JOBS=3
 
-def call(path,method='GET',body=None):
-    data=None if body is None else json.dumps(body).encode()
-    req=urllib.request.Request(BASE+'/rest/v1/'+path,data=data,method=method,headers={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'})
-    with urllib.request.urlopen(req,timeout=25) as resp: return json.loads(resp.read() or b'[]')
+BASE = os.environ.get('SUPABASE_URL','').rstrip('/')
+KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY','')
+ENDPOINTS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.nchc.org.tw/api/interpreter']
+MAX_JOBS = max(1,min(5,int(os.environ.get('AEVONE_MAX_JOBS','3'))))
 
-def osm_query(spec):
-    # OSM names/tags may be sparse. This is NOT a Google Maps scraper.
-    tag='shop' if spec['category'] in ('bakery','clothes','supermarket','shop') else 'amenity'
-    value=spec['category']
-    if value=='clothes': value='clothes'
-    if value=='hairdresser': tag='shop'
-    if value=='fitness_centre':tag='leisure'
-    place=spec['city'].replace('"','')
-    area='area["ISO3166-1"="PK"][admin_level=2]' if place=='Pakistan' else 'area["name"="'+place+'"]["boundary"="administrative"]'
-    query='[out:json][timeout:22];'+area+'->.a;(nwr["'+tag+'"="'+value+'"]["name"](area.a););out center '+str(min(150,spec['limit']*4))+';'
-    req=urllib.request.Request(OVERPASS,data=urllib.parse.urlencode({'data':query}).encode(),headers={'User-Agent':'AEVONE-Research/1.0 (personal CRM; low-volume)'})
-    with urllib.request.urlopen(req,timeout=40) as res: content=json.loads(res.read(2500000))
-    return normalize(content.get('elements',[]),spec)
+def timestamp():
+ return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
+
+def api(path,method='GET',body=None,timeout=25):
+ if not BASE.startswith('https://') or not KEY: raise RuntimeError('Missing private worker configuration')
+ data=None if body is None else json.dumps(body).encode('utf-8')
+ req=urllib.request.Request(BASE+'/rest/v1/'+path,data=data,method=method,
+  headers={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json',
+           'Prefer':'return=representation'})
+ with urllib.request.urlopen(req,timeout=timeout) as resp:
+  return json.loads(resp.read() or b'[]')
+
+def overpass_query(spec):
+ category=spec['category']; city=spec['city']; limit=spec['limit']
+ tag='shop' if category in ('bakery','clothes','supermarket','hairdresser','shop') else 'leisure' if category=='fitness_centre' else 'amenity'
+ # A single-country area is broad; limit the output and upstream timeout.
+ area='area["ISO3166-1"="PK"][admin_level=2]' if city=='Pakistan' else 'area["name"="'+city+'"]["boundary"="administrative"]'
+ expression=f'[out:json][timeout:20];{area}->.a;(nwr["{tag}"="{category}"]["name"](area.a););out center {min(200,limit*5)};'
+ return expression
+
+def fetch_osm(spec,opener=None):
+ opener=opener or urllib.request.urlopen
+ payload=urllib.parse.urlencode({'data':overpass_query(spec)}).encode()
+ last=None
+ for endpoint in ENDPOINTS:
+  try:
+   req=urllib.request.Request(endpoint,data=payload,headers={
+      'User-Agent':'AEVONE-Research/3.2 (private low-volume research)',
+      'Content-Type':'application/x-www-form-urlencoded'})
+   with opener(req,timeout=33) as resp:
+    raw=resp.read(3000000)
+   return normalize(json.loads(raw).get('elements',[]),spec)
+  except (urllib.error.URLError,TimeoutError,ValueError,KeyError) as ex:
+   last=type(ex).__name__
+ raise RuntimeError('OpenStreetMap discovery unavailable: '+str(last))
 
 def normalize(elements,spec):
-    seen=set();items=[]
-    for e in elements:
-        tags=e.get('tags',{});name=str(tags.get('name','')).strip()
-        if not name:continue
-        web=tags.get('website') or tags.get('contact:website') or ''
-        if web and not str(web).startswith(('https://','http://')):web=''
-        domain=urllib.parse.urlsplit(web).netloc.lower().removeprefix('www.') if web else ''
-        dedupe=(name.lower().strip(),domain)
-        if dedupe in seen:continue
-        seen.add(dedupe)
-        url='https://www.openstreetmap.org/'+e.get('type','node')+'/'+str(e.get('id',''))
-        items.append({'name':name[:250],'city':spec['city'],'country':'Pakistan','website':web[:2048],
-        'phone':str(tags.get('contact:phone') or tags.get('phone') or '')[:80],
-        'email':str(tags.get('contact:email') or tags.get('email') or '')[:180],
-        'source_name':'OpenStreetMap','source_url':url,'confidence':'Source-listed, not independently verified',
-        'lat':e.get('lat',e.get('center',{}).get('lat')),'lon':e.get('lon',e.get('center',{}).get('lon'))})
-        if len(items)>=spec['limit']:break
-    return items
+ result=[]; seen=set()
+ for e in elements:
+  tags=e.get('tags') or {}; name=str(tags.get('name') or '').strip()
+  if not name: continue
+  web=str(tags.get('website') or tags.get('contact:website') or '').strip()
+  if not web.startswith(('https://','http://')):web=''
+  parsed=urllib.parse.urlsplit(web)
+  if parsed.username or parsed.password: web=''
+  domain=parsed.netloc.lower().removeprefix('www.') if web else ''
+  k=(name.casefold(),domain)
+  if k in seen:continue
+  seen.add(k)
+  kind=e.get('type'); eid=e.get('id')
+  if kind not in ('node','way','relation') or not isinstance(eid,int):continue
+  source=f'https://www.openstreetmap.org/{kind}/{eid}'
+  result.append({'name':name[:250], 'city':spec['city'],'country':'Pakistan',
+     'website':web[:2048], 'phone':str(tags.get('contact:phone') or tags.get('phone') or '')[:80],
+     'email':str(tags.get('contact:email') or tags.get('email') or '')[:180],
+     'source_name':'OpenStreetMap','source_url':source,
+     'confidence':'Source-listed, not independently verified',
+     'lat':e.get('lat',(e.get('center') or {}).get('lat')),
+     'lon':e.get('lon',(e.get('center') or {}).get('lon'))})
+  if len(result)>=spec['limit']:break
+ return result
 
-def do_job(job):
-    jobid=job['id']
-    # Only service-role worker may change statuses; worker never accepts arbitrary URLs from prompts.
-    try:
-        spec=plan(job['query'])
-        call('aevone_research_jobs?id=eq.'+urllib.parse.quote(jobid),'PATCH',{'status':'running','started_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'error':None})
-        data=osm_query(spec)
-        call('aevone_research_jobs?id=eq.'+urllib.parse.quote(jobid),'PATCH',{'status':'complete','results':data,'result_count':len(data),'finished_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())})
-        return len(data)
-    except Exception as exc:
-        # Do not log provider secrets or full exception body.
-        print('Job failed:',jobid,type(exc).__name__)
-        call('aevone_research_jobs?id=eq.'+urllib.parse.quote(jobid),'PATCH',{'status':'failed','error':'Discovery source temporarily unavailable; retry later','finished_at':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())})
-        return 0
+def claim(jobid):
+ # Atomic conditional update: only one worker can take a queued row.
+ q='aevone_research_jobs?id=eq.'+urllib.parse.quote(str(jobid))+'&status=eq.queued'
+ rows=api(q,'PATCH',{'status':'running','started_at':timestamp(),'error':None})
+ return len(rows)==1
+
+def finish(jobid,fields):
+ q='aevone_research_jobs?id=eq.'+urllib.parse.quote(str(jobid))+'&status=eq.running'
+ return api(q,'PATCH',{**fields,'finished_at':timestamp()})
+
+def process(job):
+ if not claim(job['id']):return False
+ try:
+  spec=plan(job['query'])
+  rows=fetch_osm(spec)
+  finish(job['id'],{'status':'complete','results':rows,'result_count':len(rows),'error':None})
+  print('Completed job',str(job['id'])[:8], 'results',len(rows))
+ except ValueError:
+  finish(job['id'],{'status':'failed','error':'Please specify a supported industry and city.'})
+  print('Invalid query',str(job['id'])[:8])
+ except Exception as err:
+  # Do not print API URLs, request bodies or credentials.
+  finish(job['id'],{'status':'failed','error':'Discovery provider temporarily unavailable. Retry this research.'})
+  print('Provider failure',str(job['id'])[:8],type(err).__name__)
+ return True
 
 def run():
-    if not BASE.startswith('https://') or len(KEY)<25: raise RuntimeError('Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in GitHub Actions Secrets')
-    jobs=call('aevone_research_jobs?select=id,query,status&status=eq.queued&order=created_at.asc&limit='+str(MAX_JOBS))
-    for job in jobs: do_job(job)
-    print('Processed',len(jobs),'jobs')
-if __name__=='__main__':run()
+ if not BASE.startswith('https://') or len(KEY)<25:
+  raise RuntimeError('Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as GitHub Actions secrets')
+ jobs=api('aevone_research_jobs?select=id,query,status&status=eq.queued&order=created_at.asc&limit='+str(MAX_JOBS))
+ processed=sum(bool(process(job)) for job in jobs)
+ print(f'Queued={len(jobs)} Processed={processed}')
+ return processed
+
+if __name__=='__main__':sys.exit(0 if run()>=0 else 1)

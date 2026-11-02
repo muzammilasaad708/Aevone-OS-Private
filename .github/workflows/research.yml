@@ -10,14 +10,18 @@ concurrency:
   cancel-in-progress: false
 jobs:
   research:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python backend/worker.py
+      - name: Unit tests
+        run: python -m unittest discover -s tests -p 'test_research*.py' -v
+      - name: Process queued research
+        run: python backend/worker.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AEVONE_MAX_JOBS: '3'
