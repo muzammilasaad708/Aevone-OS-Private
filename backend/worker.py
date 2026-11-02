@@ -15,7 +15,13 @@ from planner import plan
 
 BASE = os.environ.get('SUPABASE_URL','').rstrip('/')
 KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY','')
-ENDPOINTS = ['https://overpass.kumi.systems/api/interpreter', 'https://overpass.nchc.org.tw/api/interpreter']
+# Public Overpass instances can be temporarily overloaded or return 429/504.
+# Keep a short fallback list; never retry indefinitely.
+ENDPOINTS = [
+ 'https://overpass-api.de/api/interpreter',
+ 'https://overpass.kumi.systems/api/interpreter',
+ 'https://overpass.nchc.org.tw/api/interpreter',
+]
 MAX_JOBS = max(1,min(5,int(os.environ.get('AEVONE_MAX_JOBS','3'))))
 
 def timestamp():
@@ -39,20 +45,36 @@ def overpass_query(spec):
  return expression
 
 def fetch_osm(spec,opener=None):
- opener=opener or urllib.request.urlopen
- payload=urllib.parse.urlencode({'data':overpass_query(spec)}).encode()
- last=None
- for endpoint in ENDPOINTS:
+ """Query public OSM servers, with bounded fallback and safe diagnostics.
+
+ Never claim that an OSM listing is independently verified.
+ """
+ opener = opener or urllib.request.urlopen
+ payload = urllib.parse.urlencode({'data':overpass_query(spec)}).encode('ascii')
+ failures = []
+ for index, endpoint in enumerate(ENDPOINTS, start=1):
   try:
-   req=urllib.request.Request(endpoint,data=payload,headers={
-      'User-Agent':'AEVONE-Research/3.2 (private low-volume research)',
-      'Content-Type':'application/x-www-form-urlencoded'})
-   with opener(req,timeout=33) as resp:
-    raw=resp.read(3000000)
-   return normalize(json.loads(raw).get('elements',[]),spec)
-  except (urllib.error.URLError,TimeoutError,ValueError,KeyError) as ex:
-   last=type(ex).__name__
- raise RuntimeError('OpenStreetMap discovery unavailable: '+str(last))
+   req = urllib.request.Request(endpoint, data=payload, headers={
+    'User-Agent': 'AEVONE-Research/3.3 (personal low-volume research)',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Accept': 'application/json'})
+   with opener(req, timeout=35) as resp:
+    raw = resp.read(3_000_001)
+   if len(raw) > 3_000_000:
+    raise ValueError('ResponseTooLarge')
+   data = json.loads(raw)
+   if not isinstance(data, dict) or not isinstance(data.get('elements'), list):
+    raise ValueError('InvalidOverpassResponse')
+   return normalize(data['elements'], spec)
+  except urllib.error.HTTPError as ex:
+   failures.append(f'instance{index}:HTTP{ex.code}')
+  except (urllib.error.URLError, TimeoutError, OSError) as ex:
+   failures.append(f'instance{index}:{type(ex).__name__}')
+  except (ValueError, KeyError, TypeError) as ex:
+   failures.append(f'instance{index}:{type(ex).__name__}')
+ # No exception messages, URLs, credentials or response bodies in logs.
+ raise RuntimeError('Overpass attempts failed: ' + ', '.join(failures))
+
 
 def normalize(elements,spec):
  result=[]; seen=set()
@@ -103,7 +125,7 @@ def process(job):
  except Exception as err:
   # Do not print API URLs, request bodies or credentials.
   finish(job['id'],{'status':'failed','error':'Discovery provider temporarily unavailable. Retry this research.'})
-  print('Provider failure',str(job['id'])[:8],type(err).__name__)
+  print('Provider failure',str(job['id'])[:8], str(err) if isinstance(err, RuntimeError) and str(err).startswith('Overpass attempts failed:') else type(err).__name__)
  return True
 
 def run():
