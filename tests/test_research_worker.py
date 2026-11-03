@@ -15,6 +15,20 @@ class ResearchTests(unittest.TestCase):
   q=worker.overpass_query(planner.plan('Find 10 salons in Karachi'))
   self.assertIn('hairdresser',q)
   self.assertNotIn('localhost',q)
+ def test_karachi_bounded_discovery(self):
+  q=worker.overpass_query(planner.plan('Find 10 bakeries in Karachi, Pakistan'))
+  self.assertIn('24.75,66.8,25.3,67.45',q)
+  self.assertIn('nwr["shop"="bakery"]["name"]',q)
+  self.assertNotIn('->.a',q)
+  self.assertIn('[timeout:12]',q)
+ def test_failed_endpoints_have_safe_error(self):
+  from urllib.error import URLError
+  with patch.object(worker,'ENDPOINTS',['https://one.example/api','https://two.example/api']):
+   def failing(_req,timeout):
+    self.assertEqual(timeout,18)
+    raise URLError('endpoint unavailable')
+   with self.assertRaisesRegex(RuntimeError,'instance1:URLError, instance2:URLError'):
+    worker.fetch_osm(planner.plan('10 bakeries in Karachi'),opener=failing)
  def test_normalize(self):
   raw=[{'id':123,'type':'node','tags':{'name':'Example Bakery','phone':'021-123','website':'https://example.org'}},
        {'id':123,'type':'node','tags':{'name':'Example Bakery','phone':'021-123','website':'https://example.org'}}]
