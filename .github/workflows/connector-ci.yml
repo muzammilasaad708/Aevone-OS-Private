@@ -1,0 +1,36 @@
+name: AEVONE Connector and Worker CI
+on:
+  pull_request:
+    paths:
+      - 'web/registry.json'
+      - 'web/registry.mjs'
+      - 'tests/**'
+      - 'backend/**'
+      - '.github/workflows/connector-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/registry.json'
+      - 'web/registry.mjs'
+      - 'tests/**'
+      - 'backend/**'
+      - '.github/workflows/connector-ci.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-connector-and-worker-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Python syntax compilation
+        run: python -m compileall -q backend tests
+      - name: Offline connector registry and existing research worker unit tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Node.js module import smoke test
+        run: |
+          node --input-type=module -e "import('./web/registry.mjs').then(m => { if (!Array.isArray(m.default) || m.default.length !== 61) process.exit(1); console.log('JS registry entries:', m.default.length); })"

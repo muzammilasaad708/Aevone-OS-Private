@@ -354,5 +354,125 @@
     "kind": "repository",
     "url": "https://github.com/AbdulHannan031/lead-generation-tool",
     "status": "not-integrated"
+  },
+  {
+    "id": "apify/apify-mcp-server",
+    "name": "apify/apify-mcp-server",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/apify-mcp-server",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/crawlee",
+    "name": "apify/crawlee",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/crawlee",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/crawlee-python",
+    "name": "apify/crawlee-python",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/crawlee-python",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/apify-client-js",
+    "name": "apify/apify-client-js",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/apify-client-js",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/apify-client-python",
+    "name": "apify/apify-client-python",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/apify-client-python",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/apify-sdk-js",
+    "name": "apify/apify-sdk-js",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/apify-sdk-js",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/actor-scraper",
+    "name": "apify/actor-scraper",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/actor-scraper",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/actor-rag-web-browser",
+    "name": "apify/actor-rag-web-browser",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/actor-rag-web-browser",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/n8n-nodes-apify",
+    "name": "apify/n8n-nodes-apify",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/n8n-nodes-apify",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apify/actor-beautifulsoup-scraper",
+    "name": "apify/actor-beautifulsoup-scraper",
+    "group": "Apify Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apify/actor-beautifulsoup-scraper",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apolloio/apollo-io-cli",
+    "name": "apolloio/apollo-io-cli",
+    "group": "B2B Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apolloio/apollo-io-cli",
+    "status": "not-integrated"
+  },
+  {
+    "id": "apolloio/apollo-mcp-plugin",
+    "name": "apolloio/apollo-mcp-plugin",
+    "group": "B2B Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/apolloio/apollo-mcp-plugin",
+    "status": "not-integrated"
+  },
+  {
+    "id": "zoominfo/zoominfo-mcp-plugin",
+    "name": "Zoominfo/zoominfo-mcp-plugin",
+    "group": "B2B Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/Zoominfo/zoominfo-mcp-plugin",
+    "status": "not-integrated"
+  },
+  {
+    "id": "zoominfo/gtm-ai-cli",
+    "name": "Zoominfo/gtm-ai-cli",
+    "group": "B2B Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/Zoominfo/gtm-ai-cli",
+    "status": "not-integrated"
+  },
+  {
+    "id": "zoominfo/n8n-nodes-zoominfo",
+    "name": "Zoominfo/n8n-nodes-zoominfo",
+    "group": "B2B Developer Tools",
+    "kind": "repository",
+    "url": "https://github.com/Zoominfo/n8n-nodes-zoominfo",
+    "status": "not-integrated"
   }
 ]
