@@ -36,13 +36,28 @@ def api(path,method='GET',body=None,timeout=25):
  with urllib.request.urlopen(req,timeout=timeout) as resp:
   return json.loads(resp.read() or b'[]')
 
+# Approximate Karachi search envelope, used only for discovery. Results remain
+# unverified OSM listings and should not be presented as verified city matches.
+KARACHI_BBOX = (24.75, 66.80, 25.30, 67.45)
+
 def overpass_query(spec):
- category=spec['category']; city=spec['city']; limit=spec['limit']
- tag='shop' if category in ('bakery','clothes','supermarket','hairdresser','shop') else 'leisure' if category=='fitness_centre' else 'amenity'
- # A single-country area is broad; limit the output and upstream timeout.
- area='area["ISO3166-1"="PK"][admin_level=2]' if city=='Pakistan' else 'area["name"="'+city+'"]["boundary"="administrative"]'
- expression=f'[out:json][timeout:20];{area}->.a;(nwr["{tag}"="{category}"]["name"](area.a););out center {min(200,limit*5)};'
- return expression
+ category = spec['category']
+ city = spec['city']
+ limit = spec['limit']
+ tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop')
+        else 'leisure' if category == 'fitness_centre' else 'amenity')
+ # Overpass area resolution and unrestricted nwr searches are expensive.
+ # The Karachi bounding-box query avoids that area lookup entirely.
+ if city == 'Karachi':
+  bbox = ','.join(map(str, KARACHI_BBOX))
+  return (f'[out:json][timeout:12];'
+          f'nwr["{tag}"="{category}"]["name"]({bbox});'
+          f'out center {min(100,limit*3)};')
+ area = ('area["ISO3166-1"="PK"][admin_level=2]' if city == 'Pakistan'
+         else 'area["name"="' + city + '"]["boundary"="administrative"]')
+ return (f'[out:json][timeout:15];{area}->.a;'
+         f'nwr["{tag}"="{category}"]["name"](area.a);'
+         f'out center {min(100,limit*3)};')
 
 def fetch_osm(spec,opener=None):
  """Query public OSM servers, with bounded fallback and safe diagnostics.
@@ -55,17 +70,21 @@ def fetch_osm(spec,opener=None):
  for index, endpoint in enumerate(ENDPOINTS, start=1):
   try:
    req = urllib.request.Request(endpoint, data=payload, headers={
-    'User-Agent': 'AEVONE-Research/3.3 (personal low-volume research)',
+    'User-Agent': 'AEVONE-Research/3.4 (personal low-volume research)',
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'})
-   with opener(req, timeout=35) as resp:
+   with opener(req, timeout=18) as resp:
     raw = resp.read(3_000_001)
    if len(raw) > 3_000_000:
     raise ValueError('ResponseTooLarge')
    data = json.loads(raw)
    if not isinstance(data, dict) or not isinstance(data.get('elements'), list):
     raise ValueError('InvalidOverpassResponse')
-   return normalize(data['elements'], spec)
+   rows = normalize(data['elements'], spec)
+   if rows:
+    return rows
+   failures.append(f'instance{index}:NoListings')
+   continue
   except urllib.error.HTTPError as ex:
    failures.append(f'instance{index}:HTTP{ex.code}')
   except (urllib.error.URLError, TimeoutError, OSError) as ex:
