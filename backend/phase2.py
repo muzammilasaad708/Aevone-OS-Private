@@ -60,15 +60,15 @@ def _record(raw, provider, spec, source_url):
     name=next((v.strip() for v in (raw.get("title"),raw.get("name"),
         raw.get("companyName"),raw.get("businessName")) if isinstance(v,str) and v.strip()),"")
     if not name: return None
-    web=_url(next((v for v in (raw.get("website"),raw.get("url"),raw.get("websiteUrl"))
+    web=_url(next((v for v in (raw.get("website"),raw.get("websiteUrl"))
             if isinstance(v,str) and v), ""))
     src=_url(raw.get("sourceUrl") or raw.get("placeUrl") or raw.get("source_url") or "") or source_url
     if not src: return None
     phone=str(raw.get("phone") or raw.get("phoneNumber") or "")[:80]
     email=str(raw.get("email") or "")[:180]
     if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+",email): email=""
-    return {"name":name[:250],"city":str(raw.get("city") or spec.get("city") or "")[:120],
-       "country":"Pakistan","website":web,"phone":phone,"email":email,
+    return {"name":name[:250],"city":str(raw.get("city") or "")[:120],
+       "country":str(raw.get("country") or "")[:120],"website":web,"phone":phone,"email":email,
        "source_name":provider,"source_url":src,
        "confidence":"Source-listed, not independently verified",
        "evidence":[{"field":"company","source_url":src,"provider":provider,
