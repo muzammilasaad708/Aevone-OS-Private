@@ -1,0 +1,24 @@
+name: AEVONE Provider Authentication Smoke Tests
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  provider-auth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline adapter contracts
+        run: python -m unittest discover -s tests -p 'test_provider_adapters.py' -v
+      - name: Single bounded live authentication check per configured provider
+        # No paid Apollo searches, no Apify Actor runs, no ZoomInfo record operations.
+        env:
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          ZOOMINFO_CLIENT_ID: ${{ secrets.ZOOMINFO_CLIENT_ID }}
+          ZOOMINFO_CLIENT_SECRET: ${{ secrets.ZOOMINFO_CLIENT_SECRET }}
+        run: python backend/provider_adapters.py --live
