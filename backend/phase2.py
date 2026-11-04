@@ -16,10 +16,14 @@ MAX_BYTES = 2_000_000
 TIMEOUT = 22
 ID_PATTERN = re.compile(r"^[a-zA-Z0-9_~-]{3,100}$")
 DOMAIN_PATTERN = re.compile(r"^(?:[a-z0-9-]+\.)+[a-z]{2,}$")
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
 def _json(url, headers, method="GET", body=None, opener=None):
     if not url.startswith(("https://api.apify.com/v2/", "https://api.apollo.io/api/v1/")):
         raise ProviderError("endpoint_not_allowed")
-    opener = opener or urllib.request.urlopen
+    opener = opener or urllib.request.build_opener(NoRedirect()).open
     request = urllib.request.Request(url, method=method, headers=headers,
         data=json.dumps(body).encode("utf-8") if body is not None else None)
     try:
