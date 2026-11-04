@@ -12,6 +12,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from planner import plan
+from phase2 import discover, ProviderError
 
 BASE = os.environ.get('SUPABASE_URL','').rstrip('/')
 KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY','')
@@ -135,8 +136,9 @@ def process(job):
  if not claim(job['id']):return False
  try:
   spec=plan(job['query'])
-  rows=fetch_osm(spec)
+  rows, notes = discover(spec, fetch_osm)
   finish(job['id'],{'status':'complete','results':rows,'result_count':len(rows),'error':None})
+  if notes: print('Optional source diagnostics:', ','.join(notes))
   print('Completed job',str(job['id'])[:8], 'results',len(rows))
  except ValueError:
   finish(job['id'],{'status':'failed','error':'Please specify a supported industry and city.'})
