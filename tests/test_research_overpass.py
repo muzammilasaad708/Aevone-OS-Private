@@ -53,7 +53,8 @@ class OverpassFallbackTests(unittest.TestCase):
     return Response(b'not-json')
    return Response(b'{"elements":[]}')
   with patch.object(worker, 'ENDPOINTS', ['https://one.example/api','https://two.example/api']):
-   self.assertEqual(worker.fetch_osm(SPEC, opener=opener), [])
+   with self.assertRaisesRegex(RuntimeError, 'instance1:JSONDecodeError, instance2:NoListings'):
+    worker.fetch_osm(SPEC, opener=opener)
   self.assertEqual(len(calls), 2)
 
 if __name__ == '__main__':
