@@ -154,8 +154,8 @@ def apollo_enrich(records,opener=None):
             "source_url":"https://www.apollo.io/","verified":False})
     return records
 
-def discover(spec,osm_fetch,opener=None):
-    """Preserve free OSM fallback, optionally supplement with existing Apify data."""
+def discover(spec,osm_fetch,opener=None,snapshot_fetch=None):
+    """Free OSM/Geofabrik discovery; optional read-only Apify source."""
     notes=[];groups=[]
     try:groups.append(osm_fetch(spec))
     except Exception as exc:
@@ -173,6 +173,21 @@ def discover(spec,osm_fetch,opener=None):
     if os.getenv("AEVONE_ENABLE_APIFY_DATASET")=="true":
         try:groups.append(apify_dataset(spec,opener=opener))
         except ProviderError as err:notes.append("apify_"+str(err))
+    # Independent, free OSM data download if public Overpass fails or returns
+    # fewer than requested. The OSM extract is weekly-cached by GitHub Actions.
+    # It does not run Apify Actors or spend Apollo enrichment credits.
+    if os.getenv("AEVONE_ENABLE_OSM_SNAPSHOT")=="true" and len(merge_records(
+            *groups,limit=int(spec["limit"]))) < int(spec["limit"]):
+        from geofabrik import discover_snapshot, SnapshotError
+        try:
+            groups.append((snapshot_fetch or discover_snapshot)(spec))
+        except SnapshotError as err:
+            allowed={"snapshot_city_not_supported","osmium_dependency_missing",
+                "extract_download_unavailable","extract_download_timeout",
+                "extract_exceeds_size_limit","extract_empty","extract_missing",
+                "osm_extract_invalid","extract_no_karachi_businesses",
+                "cache_exceeds_size_limit"}
+            notes.append("snapshot_"+(str(err) if str(err) in allowed else "unavailable"))
     rows=merge_records(*groups,limit=int(spec["limit"]))
     if rows:
         try:rows=apollo_enrich(rows,opener=opener)
