@@ -24,6 +24,7 @@ ENDPOINTS = [
  'https://overpass.nchc.org.tw/api/interpreter',
 ]
 MAX_JOBS = max(1,min(5,int(os.environ.get('AEVONE_MAX_JOBS','3'))))
+FAILED_JOBS = []
 
 def timestamp():
  return datetime.now(timezone.utc).isoformat().replace('+00:00','Z')
@@ -146,15 +147,20 @@ def process(job):
  except Exception as err:
   # Do not print API URLs, request bodies or credentials.
   finish(job['id'],{'status':'failed','error':'Discovery provider temporarily unavailable. Retry this research.'})
-  print('Provider failure',str(job['id'])[:8], str(err) if isinstance(err, RuntimeError) and str(err).startswith('Overpass attempts failed:') else type(err).__name__)
+  FAILED_JOBS.append(str(job['id'])[:8])
+  safe_code = str(err) if isinstance(err, ProviderError) else type(err).__name__
+  print('Provider failure',str(job['id'])[:8], safe_code)
  return True
 
 def run():
  if not BASE.startswith('https://') or len(KEY)<25:
   raise RuntimeError('Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as GitHub Actions secrets')
  jobs=api('aevone_research_jobs?select=id,query,status&status=eq.queued&order=created_at.asc&limit='+str(MAX_JOBS))
+ FAILED_JOBS.clear()
  processed=sum(bool(process(job)) for job in jobs)
- print(f'Queued={len(jobs)} Processed={processed}')
+ print(f'Queued={len(jobs)} Processed={processed} Failed={len(FAILED_JOBS)}')
+ if FAILED_JOBS:
+  raise RuntimeError(f'{len(FAILED_JOBS)} research job(s) failed; see sanitized provider diagnostics above')
  return processed
 
 if __name__=='__main__':sys.exit(0 if run()>=0 else 1)

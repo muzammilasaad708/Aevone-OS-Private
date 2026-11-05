@@ -158,7 +158,18 @@ def discover(spec,osm_fetch,opener=None):
     """Preserve free OSM fallback, optionally supplement with existing Apify data."""
     notes=[];groups=[]
     try:groups.append(osm_fetch(spec))
-    except Exception:notes.append("osm_unavailable")
+    except Exception as exc:
+        # Keep diagnostics bounded and free of request URLs, payloads and secrets.
+        # The worker emits this fixed prefix with endpoint index/status only.
+        message = str(exc) if isinstance(exc, RuntimeError) else ""
+        if message.startswith("Overpass attempts failed: "):
+            details = message.removeprefix("Overpass attempts failed: ")
+            if re.fullmatch(r"(?:instance[1-9][0-9]*:(?:HTTP[0-9]{3}|URLError|TimeoutError|OSError|ValueError|KeyError|TypeError|NoListings)(?:, )?)+", details):
+                notes.append("osm_" + details.replace(", ", ";"))
+            else:
+                notes.append("osm_unavailable")
+        else:
+            notes.append("osm_unavailable")
     if os.getenv("AEVONE_ENABLE_APIFY_DATASET")=="true":
         try:groups.append(apify_dataset(spec,opener=opener))
         except ProviderError as err:notes.append("apify_"+str(err))
@@ -166,5 +177,7 @@ def discover(spec,osm_fetch,opener=None):
     if rows:
         try:rows=apollo_enrich(rows,opener=opener)
         except ProviderError as err:notes.append("apollo_"+str(err))
-    if not rows:raise ProviderError("no_source_backed_listings")
+    if not rows:
+        # Only whitelisted diagnostic codes can reach logs. No raw exception text.
+        raise ProviderError("no_source_backed_listings:" + ";".join(notes))
     return rows,notes
