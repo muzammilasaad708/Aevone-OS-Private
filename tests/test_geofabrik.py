@@ -74,14 +74,17 @@ class GeofabrikTests(unittest.TestCase):
 <node id="102" lat="24.863" lon="67.012"><tag k="name" v="Restaurant Example"/><tag k="amenity" v="restaurant"/></node>
 <node id="103" lat="31.52" lon="74.35"><tag k="name" v="Hotel Outside"/><tag k="tourism" v="hotel"/></node>
 <node id="104" lat="24.86" lon="67.0"><tag k="tourism" v="hotel"/></node>
+<node id="105" lat="24.861" lon="67.003"/>
+<node id="106" lat="24.862" lon="67.004"/>
+<way id="201"><nd ref="105"/><nd ref="106"/><tag k="name" v="Hotel With Building"/><tag k="tourism" v="hotel"/></way>
 </osm>"""
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "sample.osm"
             path.write_text(xml, encoding="utf-8")
             records = geofabrik.extract_file(path)
-        self.assertEqual(len(records), 2)
+        self.assertEqual(len(records), 3)
         self.assertEqual({r["category"] for r in records}, {"hotel", "restaurant"})
-        self.assertEqual({r["id"] for r in records}, {101, 102})
+        self.assertEqual({r["id"] for r in records}, {101, 102, 201})
 
 if __name__ == "__main__":
     unittest.main()
