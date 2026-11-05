@@ -2,7 +2,7 @@
 import re
 CATEGORIES = {
  'baker':'bakery','restaurant':'restaurant','clothing':'clothes','fashion':'clothes',
- 'salon':'hairdresser','clinic':'clinic','hotel':'hotel','cafe':'cafe',
+ 'salon':'hairdresser','clinic':'clinic','hotel':'hotel','hotal':'hotel','cafe':'cafe',
  'coffee':'cafe','pharmac':'pharmacy','school':'school','gym':'fitness_centre',
  'supermarket':'supermarket','shop':'shop','store':'shop'
 }
