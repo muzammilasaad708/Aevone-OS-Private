@@ -46,9 +46,10 @@ extract from Geofabrik. It never fabricates owners, emails or business names.
 ## Safe deployment verification
 
 1. Review the PR's offline CI tests. Merge only after all checks pass.
-2. Open GitHub Actions > AEVONE Scheduled Research > Run workflow on main.
-   The existing valid "Find 10 hotels in Karachi, Pakistan" queued row
-   can be processed without resubmitting it.
+2. Submit a fresh "Find 10 hotels in Karachi, Pakistan" request in AEVONE
+   Lead Generation AFTER merge. The earlier correct query was already marked
+   failed by the old main-branch worker, and failed rows are not auto-retried.
+   Then open GitHub Actions > AEVONE Scheduled Research > Run workflow on main.
 3. Open Supabase > public.aevone_research_jobs. Inspect the matching job's
    status, result_count, error and results. Genuine completion requires
    status=complete and non-empty source-linked results.
