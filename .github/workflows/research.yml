@@ -18,10 +18,15 @@ jobs:
         with:
           python-version: '3.12'
       - name: Unit tests
-        run: python -m unittest discover -s tests -p 'test_research*.py' -v
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Process queued research
         run: python backend/worker.py
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AEVONE_MAX_JOBS: '3'
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          APIFY_DATASET_ID: ${{ vars.APIFY_DATASET_ID }}
+          AEVONE_ENABLE_APIFY_DATASET: ${{ vars.AEVONE_ENABLE_APIFY_DATASET }}
+          APOLLO_API_KEY: ${{ secrets.APOLLO_API_KEY }}
+          AEVONE_ALLOW_BILLABLE_APOLLO: ${{ vars.AEVONE_ALLOW_BILLABLE_APOLLO }}

@@ -45,5 +45,5 @@ class ResearchTests(unittest.TestCase):
  def test_processed(self):
   with patch.object(worker,'claim',return_value=True),patch.object(worker,'fetch_osm',return_value=[]),patch.object(worker,'finish') as f:
    self.assertTrue(worker.process({'id':'abc','query':'10 bakeries in Karachi'}))
-   self.assertEqual(f.call_args.args[1]['status'],'complete')
+   self.assertEqual(f.call_args.args[1]['status'],'failed')  # no source-backed listings is not a successful discovery
 if __name__=='__main__':unittest.main()
