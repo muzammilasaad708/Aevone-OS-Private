@@ -2,6 +2,10 @@ import sys,pathlib,unittest
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parents[1]/'backend'))
 from planner import plan
 class TwelveResearchScenarios(unittest.TestCase):
+ def test_hotel_typo_and_correct_spelling(self):
+  for q in ('Find 10 hotels in Karachi, Pakistan','Find 10 hotal in Karachi, Pakistan'):
+   with self.subTest(query=q):
+    self.assertEqual(plan(q)['category'],'hotel')
  def test_twelve_business_queries(self):
   cases=[('10 bakeries in Karachi','bakery','Karachi'),('15 restaurants in Lahore','restaurant','Lahore'),
    ('20 clothing brands in Pakistan','clothes','Pakistan'),('5 salons in Islamabad','hairdresser','Islamabad'),
