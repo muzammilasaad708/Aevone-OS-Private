@@ -17,6 +17,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install pinned free OSM snapshot parser
+        run: python -m pip install --disable-pip-version-check 'osmium==4.3.2'
+      - name: Derive weekly OSM cache key
+        id: osm_week
+        run: echo "week=$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - name: Restore weekly free OSM business snapshot
+        uses: actions/cache@v4
+        with:
+          path: .aevone-cache/pakistan-businesses.json
+          key: aevone-osm-pakistan-v1-${{ steps.osm_week.outputs.week }}
       - name: Unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Process queued research
@@ -25,6 +35,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           AEVONE_MAX_JOBS: '3'
+          AEVONE_ENABLE_OSM_SNAPSHOT: 'true'
+          AEVONE_SNAPSHOT_CACHE_PATH: '.aevone-cache/pakistan-businesses.json'
           APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
           APIFY_DATASET_ID: ${{ vars.APIFY_DATASET_ID }}
           AEVONE_ENABLE_APIFY_DATASET: ${{ vars.AEVONE_ENABLE_APIFY_DATASET }}

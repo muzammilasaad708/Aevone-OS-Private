@@ -7,6 +7,11 @@ class ResearchTests(unittest.TestCase):
  def test_parse(self):
   p=planner.plan('Find 20 bakeries in Karachi')
   self.assertEqual((p['category'],p['city'],p['limit']),('bakery','Karachi',20))
+ def test_hotel_uses_osm_tourism_tag(self):
+  spec=planner.plan('Find 10 hotels in Karachi, Pakistan')
+  query=worker.overpass_query(spec)
+  self.assertIn('nwr["tourism"="hotel"]["name"]',query)
+  self.assertNotIn('nwr["amenity"="hotel"]',query)
  def test_limit(self):
   self.assertEqual(planner.plan('Find 999 restaurants in Lahore')['limit'],50)
  def test_unsupported(self):

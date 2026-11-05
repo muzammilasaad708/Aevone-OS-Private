@@ -47,7 +47,8 @@ def overpass_query(spec):
  city = spec['city']
  limit = spec['limit']
  tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop')
-        else 'leisure' if category == 'fitness_centre' else 'amenity')
+        else 'leisure' if category == 'fitness_centre'
+        else 'tourism' if category == 'hotel' else 'amenity')
  # Overpass area resolution and unrestricted nwr searches are expensive.
  # The Karachi bounding-box query avoids that area lookup entirely.
  if city == 'Karachi':
