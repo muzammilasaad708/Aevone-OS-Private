@@ -4,6 +4,10 @@ on:
     paths:
       - 'web/registry.json'
       - 'web/registry.mjs'
+      - 'web/lead.mjs'
+      - 'web/app.js'
+      - 'supabase/functions/aevone-dispatch/**'
+      - '.github/workflows/research.yml'
       - 'tests/**'
       - 'backend/**'
       - '.github/workflows/connector-ci.yml'
@@ -12,6 +16,10 @@ on:
     paths:
       - 'web/registry.json'
       - 'web/registry.mjs'
+      - 'web/lead.mjs'
+      - 'web/app.js'
+      - 'supabase/functions/aevone-dispatch/**'
+      - '.github/workflows/research.yml'
       - 'tests/**'
       - 'backend/**'
       - '.github/workflows/connector-ci.yml'
@@ -34,7 +42,9 @@ jobs:
       - name: Offline connector registry and existing research worker unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Lead workspace JavaScript syntax
-        run: node --check web/lead.mjs
+        run: |
+          node --check web/lead.mjs
+          node --check web/app.js
       - name: Node.js module import smoke test
         run: |
           node --input-type=module -e "import('./web/registry.mjs').then(m => { if (!Array.isArray(m.default) || m.default.length !== 61) process.exit(1); console.log('JS registry entries:', m.default.length); })"

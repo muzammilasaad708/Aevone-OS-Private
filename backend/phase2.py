@@ -157,6 +157,21 @@ def apollo_enrich(records,opener=None):
 def discover(spec,osm_fetch,opener=None,snapshot_fetch=None):
     """Free OSM/Geofabrik discovery; optional read-only Apify source."""
     notes=[];groups=[]
+    # Use an already cached, source-attributed OSM snapshot before slower APIs.
+    # Never cause a network download just to test this warm-cache path.
+    if os.getenv("AEVONE_ENABLE_OSM_SNAPSHOT")=="true" and snapshot_fetch is None:
+        try:
+            from geofabrik import cached_snapshot
+            cached=cached_snapshot(spec)
+            if cached:
+                groups.append(cached)
+                rows=merge_records(*groups,limit=int(spec["limit"]))
+                if len(rows)>=int(spec["limit"]):
+                    try:rows=apollo_enrich(rows,opener=opener)
+                    except ProviderError as err:notes.append("apollo_"+str(err))
+                    return rows,["osm_cached_snapshot",*notes]
+        except Exception:
+            notes.append("osm_cache_unavailable")
     try:groups.append(osm_fetch(spec))
     except Exception as exc:
         # Keep diagnostics bounded and free of request URLs, payloads and secrets.
@@ -176,7 +191,8 @@ def discover(spec,osm_fetch,opener=None,snapshot_fetch=None):
     # Independent, free OSM data download if public Overpass fails or returns
     # fewer than requested. The OSM extract is weekly-cached by GitHub Actions.
     # It does not run Apify Actors or spend Apollo enrichment credits.
-    if os.getenv("AEVONE_ENABLE_OSM_SNAPSHOT")=="true" and len(merge_records(
+    if os.getenv("AEVONE_ENABLE_OSM_SNAPSHOT")=="true" and not any(
+            group for group in groups if group and group[0].get("source_name")=="OpenStreetMap (Geofabrik extract)") and len(merge_records(
             *groups,limit=int(spec["limit"]))) < int(spec["limit"]):
         from geofabrik import discover_snapshot, SnapshotError
         try:

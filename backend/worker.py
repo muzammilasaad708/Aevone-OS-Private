@@ -76,7 +76,7 @@ def fetch_osm(spec,opener=None):
     'User-Agent': 'AEVONE-Research/3.4 (personal low-volume research)',
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'})
-   with opener(req, timeout=18) as resp:
+   with opener(req, timeout=(8 if os.environ.get('AEVONE_ENABLE_OSM_SNAPSHOT')=='true' and spec.get('city')=='Karachi' else 18)) as resp:
     raw = resp.read(3_000_001)
    if len(raw) > 3_000_000:
     raise ValueError('ResponseTooLarge')
