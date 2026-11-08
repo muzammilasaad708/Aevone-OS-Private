@@ -236,3 +236,14 @@ def discover_snapshot(spec, path=None, download=None):
         if len(found) >= min(50, max(1, int(spec["limit"]))):
             break
     return found
+
+def cached_snapshot(spec, path=None):
+    """Read a fresh local snapshot without ever downloading data."""
+    if spec.get("city") != "Karachi":
+        return []
+    path = Path(path or os.getenv("AEVONE_SNAPSHOT_CACHE_PATH", DEFAULT_CACHE))
+    if _read_cache(path) is None:
+        return []
+    def no_download(_):
+        raise SnapshotError("cache_unavailable")
+    return discover_snapshot(spec, path=path, download=no_download)
