@@ -54,7 +54,7 @@ async function pollResearch(){
  }catch{ /* Temporary network errors must not interrupt the compose box. */ }
  finally{researchPollBusy=false;}
 }
-setInterval(pollResearch,15000);
+setInterval(pollResearch,5000);
 function renderUnconfigured(){root.innerHTML=`<div class="authcanvas"><div class="authcard narrow"><div class="monogram">A<span>✦</span></div><h2>Configuration needed</h2><p>Connect your Supabase project before signing in.</p><div class="codehint">Run <strong>CONFIGURE_AEVONE_OS.bat</strong> and enter only your public Supabase Project URL and publishable key.</div><p class="smallmuted">Do not paste an OpenAI API key, Supabase service-role key or password here.</p></div></div>`;}
 function renderAuth(){
  const pw=state.recovery;
@@ -222,7 +222,7 @@ root.addEventListener('submit',async event=>{
    await api.table('aevone_profiles',{method:'POST',query:'on_conflict=user_id',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:state.user.id,full_name:String(values.full_name||'').trim(),phone:String(values.phone||'').trim(),job_title:String(values.job_title||'').trim(),updated_at:new Date().toISOString()}});
    await getAccount();alert('Your profile was saved.','success');return;
   }
-  if(form.id==='research-form'){try{await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'Research dispatched. Status and results will update automatically.':'Research queued. Automatic status updates are on; the scheduled worker is the fallback.','success');}catch(e){alert(e.message,'error');}return;}
+  if(form.id==='research-form'){try{await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved, but instant dispatch is unavailable ('+leadResearch.lastDispatch+'). Scheduled worker is the backup.',leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
   if(form.id==='lead-form'){
    const body={name:String(values.name||'').trim(),city:String(values.city||'').trim(),country:String(values.country||'').trim(),website:String(values.website||'').trim(),source_url:String(values.source_url||'').trim(),source_name:String(values.source_name||'').trim(),notes:String(values.notes||'').trim(),created_by:state.user.id,status:'unverified'};
    if(!body.name)throw new ApiError('Company name required');

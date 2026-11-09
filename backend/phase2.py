@@ -117,7 +117,7 @@ def apify_task(spec,opener=None):
     if not token or not ID_PATTERN.fullmatch(task): raise ProviderError("apify_task_not_configured")
     # Task must be preconfigured in Apify and reviewed for input schema and cost.
     # This sends a bounded search input compatible only with tasks configured for it.
-    input_data={"searchStringsArray":[spec["category"]+" in "+spec["city"]+", Pakistan"],
+    input_data={"searchStringsArray":[spec["category"]+" in "+spec["city"]+", "+spec.get("country","Pakistan")],
         "maxCrawledPlacesPerSearch":min(20,int(spec["limit"])),"language":"en"}
     url="https://api.apify.com/v2/actor-tasks/"+urllib.parse.quote(task,safe="")+"/runs"
     response=_json(url,{"Authorization":"Bearer "+token,"Content-Type":"application/json"},

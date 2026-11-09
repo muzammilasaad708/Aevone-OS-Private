@@ -5,6 +5,7 @@ catalogue entries, not integrations. Never run unreviewed third-party code.
 """
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -46,20 +47,43 @@ def overpass_query(spec):
  category = spec['category']
  city = spec['city']
  limit = spec['limit']
- tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop')
+ tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop','perfumery','cosmetics','jewelry','electronics','books','florist','car')
         else 'leisure' if category == 'fitness_centre'
         else 'tourism' if category == 'hotel' else 'amenity')
  # Overpass area resolution and unrestricted nwr searches are expensive.
  # The Karachi bounding-box query avoids that area lookup entirely.
- if city == 'Karachi':
+ if city == 'Karachi' and spec.get('country_code','PK') == 'PK':
   bbox = ','.join(map(str, KARACHI_BBOX))
   return (f'[out:json][timeout:12];'
           f'nwr["{tag}"="{category}"]["name"]({bbox});'
           f'out center {min(100,limit*3)};')
- area = ('area["ISO3166-1"="PK"][admin_level=2]' if city == 'Pakistan'
-         else 'area["name"="' + city + '"]["boundary"="administrative"]')
- return (f'[out:json][timeout:15];{area}->.a;'
-         f'nwr["{tag}"="{category}"]["name"](area.a);'
+ # All locations are resolved *within the requested country*. Never use an
+ # unscoped city-name match (Paris, Hyderabad, etc. are ambiguous worldwide).
+ code = spec.get('country_code','PK')
+ if not re.fullmatch(r'[A-Z]{2}',code):
+  raise ValueError('Invalid country code')
+ country = f'area["ISO3166-1"="{code}"][admin_level=2]->.country;'
+ if spec.get('scope')=='country':
+  target = 'area.country'
+  prefix = country
+ else:
+  if not re.fullmatch(r"[\w\s.'’\-]{1,100}",city,re.UNICODE):
+   raise ValueError('Invalid city')
+  def escaped(name):
+   return name.replace('\\','\\\\').replace('"','\\"')
+  names=[city]
+  # Native-language OSM name is often different from English.
+  names.extend({'Istanbul':['İstanbul'],'Makkah':['Mecca','مكة'],
+                'Madinah':['Medina','المدينة المنورة'],
+                'Khyber Pakhtunkhwa':['خیبر پختونخوا']}.get(city,[]))
+  alternatives=''.join(
+    f'area(area.country)["name"="{escaped(name)}"]["boundary"="administrative"];'
+    for name in names)
+  alternatives+=f'area(area.country)["name:en"="{escaped(city)}"]["boundary"="administrative"];'
+  prefix=country+'('+alternatives+')->.target;'
+  target='area.target'
+ return (f'[out:json][timeout:12];'+prefix+
+         f'nwr["{tag}"="{category}"]["name"]({target});'
          f'out center {min(100,limit*3)};')
 
 def fetch_osm(spec,opener=None):
@@ -76,7 +100,7 @@ def fetch_osm(spec,opener=None):
     'User-Agent': 'AEVONE-Research/3.4 (personal low-volume research)',
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': 'application/json'})
-   with opener(req, timeout=(8 if os.environ.get('AEVONE_ENABLE_OSM_SNAPSHOT')=='true' and spec.get('city')=='Karachi' else 18)) as resp:
+   with opener(req, timeout=(9 if spec.get('country_code','PK')!='PK' else (8 if os.environ.get('AEVONE_ENABLE_OSM_SNAPSHOT')=='true' and spec.get('city')=='Karachi' else 18))) as resp:
     raw = resp.read(3_000_001)
    if len(raw) > 3_000_000:
     raise ValueError('ResponseTooLarge')
@@ -114,7 +138,7 @@ def normalize(elements,spec):
   kind=e.get('type'); eid=e.get('id')
   if kind not in ('node','way','relation') or not isinstance(eid,int):continue
   source=f'https://www.openstreetmap.org/{kind}/{eid}'
-  result.append({'name':name[:250], 'city':spec['city'],'country':'Pakistan',
+  result.append({'name':name[:250], 'city':spec['city'] if spec.get('scope')!='country' else '', 'country':spec.get('country','Pakistan'),
      'website':web[:2048], 'phone':str(tags.get('contact:phone') or tags.get('phone') or '')[:80],
      'email':str(tags.get('contact:email') or tags.get('email') or '')[:180],
      'source_name':'OpenStreetMap','source_url':source,
@@ -156,7 +180,16 @@ def process(job):
 def run():
  if not BASE.startswith('https://') or len(KEY)<25:
   raise RuntimeError('Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY as GitHub Actions secrets')
- jobs=api('aevone_research_jobs?select=id,query,status&status=eq.queued&order=created_at.asc&limit='+str(MAX_JOBS))
+ # On-demand dispatch passes exactly one job ID, preventing an old backlog
+ # from consuming the newly requested user's workflow.
+ target=os.environ.get('AEVONE_JOB_ID','').strip()
+ if target:
+  if not re.fullmatch(r'[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}',target):
+   raise RuntimeError('Invalid targeted job ID')
+  jobs=api('aevone_research_jobs?select=id,query,status&id=eq.'+
+           urllib.parse.quote(target)+'&status=eq.queued&limit=1')
+ else:
+  jobs=api('aevone_research_jobs?select=id,query,status&status=eq.queued&order=created_at.asc&limit='+str(MAX_JOBS))
  FAILED_JOBS.clear()
  processed=sum(bool(process(job)) for job in jobs)
  print(f'Queued={len(jobs)} Processed={processed} Failed={len(FAILED_JOBS)}')
