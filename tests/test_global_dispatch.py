@@ -52,6 +52,11 @@ class GlobalGeographyTests(unittest.TestCase):
   self.assertIn('area.target',query)
   self.assertNotIn('Pakistan',query)
 
+ def test_dubai_perfume_category_uses_shop_tag(self):
+  q=worker.overpass_query(plan('Find 30 perfume brands in Dubai, UAE'))
+  self.assertIn('nwr["shop"="perfumery"]["name"]',q)
+  self.assertIn('="AE"',q)
+
  def test_istanbul_has_localized_osm_alias(self):
   query=worker.overpass_query(plan('Find 30 bakeries in Istanbul, Turkey'))
   self.assertIn('İstanbul',query)
