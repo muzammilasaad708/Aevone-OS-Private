@@ -47,7 +47,7 @@ def overpass_query(spec):
  category = spec['category']
  city = spec['city']
  limit = spec['limit']
- tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop')
+ tag = ('shop' if category in ('bakery','clothes','supermarket','hairdresser','shop','perfumery','cosmetics','jewelry','electronics','books','florist','car')
         else 'leisure' if category == 'fitness_centre'
         else 'tourism' if category == 'hotel' else 'amenity')
  # Overpass area resolution and unrestricted nwr searches are expensive.
