@@ -176,6 +176,7 @@ root.addEventListener('click',async event=>{
  if(button.dataset.researchId){leadResearch.active=button.dataset.researchId;render();return;}
  if(button.dataset.leadAct==='new'){leadResearch.active=null;render();return;}
  if(button.dataset.leadAct==='refresh'){try{await leadResearch.refresh();render();}catch(e){alert(e.message,'error');}return;}
+ if(button.dataset.leadAct==='dispatch'){try{const status=await leadResearch.dispatch(leadResearch.active);alert(status==='requested'?'GitHub worker requested. Status will refresh automatically.':'Instant dispatch not confirmed: '+status+'. Scheduled fallback remains enabled.',status==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
  if(button.dataset.saveResult!==undefined){try{const name=await leadResearch.save(Number(button.dataset.saveResult));await loadLeads();alert(name+' saved as unverified.','success');}catch(e){alert(e.message,'error');}return;}
  if(lead){await openLead(lead);return;}
  if(button.dataset.provider){state.modal=button.dataset.provider;renderVaultModal();return;}
@@ -196,10 +197,25 @@ root.addEventListener('click',async event=>{
  }catch(error){alert(error.message,'error');}
 });
 root.addEventListener('change',async event=>{
+ if(event.target.matches('[data-research-filter]')){
+  const form=event.target.closest('#research-form');
+  if(form){
+   const draft=form.querySelector('textarea[name=query]')?.value||'';
+   leadResearch.setFilter(event.target.name,event.target.value);
+   leadResearch.draft=draft;
+   if(event.target.name==='country'||event.target.name==='state')render();
+   return;
+  }
+ }
  if(event.target.id==='brain-provider'){await brain.chooseProvider(event.target.value);}
  else if(event.target.id==='brain-model'){brain.model=event.target.value;}
 });
 root.addEventListener('input',event=>{
+ if(event.target.matches('#research-form textarea[name=query]')){leadResearch.draft=event.target.value;return;}
+ if(event.target.matches('#research-form [data-research-filter]')){
+  if(event.target.tagName==='INPUT')leadResearch.filters[event.target.name]=event.target.value;
+  return;
+ }
  if(event.target.id!=='lead-filter')return;
  state.filter=event.target.value;const term=state.filter.trim().toLowerCase();
  for(const row of root.querySelectorAll('tr[data-search-row]'))row.hidden=!row.dataset.searchRow.includes(term);
@@ -222,7 +238,9 @@ root.addEventListener('submit',async event=>{
    await api.table('aevone_profiles',{method:'POST',query:'on_conflict=user_id',headers:{Prefer:'resolution=merge-duplicates,return=representation'},body:{user_id:state.user.id,full_name:String(values.full_name||'').trim(),phone:String(values.phone||'').trim(),job_title:String(values.job_title||'').trim(),updated_at:new Date().toISOString()}});
    await getAccount();alert('Your profile was saved.','success');return;
   }
-  if(form.id==='research-form'){try{await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved, but instant dispatch is unavailable ('+leadResearch.lastDispatch+'). Scheduled worker is the backup.',leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
+  if(form.id==='research-form'){try{
+   for(const key of ['country','city','state','industry','quantity'])if(values[key]!==undefined)leadResearch.filters[key]=String(values[key]);
+   await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved, but instant dispatch is unavailable ('+leadResearch.lastDispatch+'). Scheduled worker is the backup.',leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
   if(form.id==='lead-form'){
    const body={name:String(values.name||'').trim(),city:String(values.city||'').trim(),country:String(values.country||'').trim(),website:String(values.website||'').trim(),source_url:String(values.source_url||'').trim(),source_name:String(values.source_name||'').trim(),notes:String(values.notes||'').trim(),created_by:state.user.id,status:'unverified'};
    if(!body.name)throw new ApiError('Company name required');
