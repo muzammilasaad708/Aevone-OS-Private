@@ -1,35 +1,55 @@
 import {esc,safeHref} from './util.mjs';
 import {countries, stateOptions, cityOptions, industries} from './geography.mjs';
 export class LeadWorkspace {
- constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.dispatchAttempts=new Map();this.filters={country:'',city:'',state:'',industry:'',quantity:'20'};this.draft='';}
+ constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.dispatchAttempts=new Map();this.filters={country:'',city:'',state:'',stateManual:'',cityManual:'',industry:'',quantity:'20'};this.draft='';}
  async load(api,userId){this.api=api;this.userId=userId;await this.refresh();}
  async refresh(){this.jobs=await this.api.table('aevone_research_jobs',{select:'id,query,status,results,result_count,error,created_at,dispatch_requested_at',query:'order=created_at.desc&limit=60'});if(!this.active&&this.jobs.length)this.active=this.jobs[0].id;this.status='';}
 
  get current(){return this.jobs.find(x=>x.id===this.active);}
- setFilter(name,value){if(!Object.hasOwn(this.filters,name))return;this.filters[name]=String(value||'').slice(0,100);if(name==='country'){this.filters.state='';this.filters.city='';}if(name==='state')this.filters.city='';}
+ setFilter(name,value){
+  if(!Object.hasOwn(this.filters,name))return;
+  this.filters[name]=String(value||'').slice(0,120);
+  if(name==='country'){
+   this.filters.state='';this.filters.city='';
+   this.filters.stateManual='';this.filters.cityManual='';
+  }
+  if(name==='state'){
+   this.filters.city='';this.filters.cityManual='';
+  }
+ }
  filteredQuery(){
   const f=this.filters,industry=industries.find(x=>x.label===f.industry);
   if(!f.country||!f.industry)return '';
   if(!industry?.supported)throw new Error('This sector is in the target catalogue, but no discovery connector is enabled for it yet. Choose a supported directory category.');
-  const code=countries.find(c=>c.code===f.country);
-  if(!code)throw new Error('Choose a country');
-  const city=(f.city||f.state).trim(),place=[city,code.name].filter(Boolean).join(', ');
+  const country=countries.find(c=>c.code===f.country);
+  if(!country)throw new Error('Choose a country');
+  const state=f.state==='__other__'?f.stateManual.trim():f.state.trim();
+  const city=f.city==='__other__'?f.cityManual.trim():f.city.trim();
+  if(f.state==='__other__'&&!state)throw new Error('Enter the unlisted state/province name.');
+  if(f.city==='__other__'&&!city)throw new Error('Enter the unlisted city name.');
+  const place=[city||state,country.name].filter(Boolean).join(', ');
   const quantity=Math.max(1,Math.min(50,Number(f.quantity)||20));
   return 'Find '+quantity+' '+industry.searchTerm+' in '+place+'.';
  }
  fieldUI(){
   const f=this.filters;
-  const countryOpts=countries.map(x=>'<option value="'+esc(x.code)+'"'+(x.code===f.country?' selected':'')+'>'+esc(x.name)+'</option>').join('');
-  const regionOpts=stateOptions(f.country).map(x=>'<option value="'+esc(x)+'"></option>').join('');
-  const cityOpts=cityOptions(f.country,f.state).map(x=>'<option value="'+esc(x)+'"></option>').join('');
-  const industryGroups=[...new Set(industries.map(x=>x.group))].map(group=>'<optgroup label="'+esc(group)+'">'+industries.filter(x=>x.group===group).map(x=>'<option value="'+esc(x.label)+'"'+(f.industry===x.label?' selected':'')+'>'+esc(x.label)+(x.supported?'':' (source pending)')+'</option>').join('')+'</optgroup>').join('');
+  const option=(value,label,selected)=>'<option value="'+esc(value)+'"'+(value===selected?' selected':'')+'>'+esc(label)+'</option>';
+  const countryOpts=countries.map(c=>option(c.code,c.name,f.country)).join('');
+  const states=stateOptions(f.country);
+  const chosenState=states.find(x=>x.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase()===String(f.state).normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase())||f.state;
+  const stateOpts=states.map(x=>option(x,x,chosenState)).join('');
+  const cities=cityOptions(f.country,chosenState);
+  const cityOpts=cities.map(x=>option(x,x,f.city)).join('');
+  const industryGroups=[...new Set(industries.map(x=>x.group))].map(group=>'<optgroup label="'+esc(group)+'">'+industries.filter(x=>x.group===group).map(x=>option(x.label,x.label+(x.supported?'':' (source pending)'),f.industry)).join('')+'</optgroup>').join('');
+  const stateManual=f.state==='__other__'?'<input name="stateManual" data-research-filter type="text" maxlength="100" placeholder="Type unlisted state/province" value="'+esc(f.stateManual)+'" aria-label="Unlisted state or province">':'';
+  const cityManual=f.city==='__other__'?'<input name="cityManual" data-research-filter type="text" maxlength="100" placeholder="Type unlisted city" value="'+esc(f.cityManual)+'" aria-label="Unlisted city">':'';
   return '<div class="research-filtergrid" aria-label="Global business research filters">'+
-   '<label>Country<select name="country" data-research-filter><option value="">Choose country</option>'+countryOpts+'</select></label>'+
-   '<label>City<input name="city" list="aevone-cities" data-research-filter placeholder="City, or type any name" value="'+esc(f.city)+'"><datalist id="aevone-cities">'+cityOpts+'</datalist></label>'+
-   '<label>State / Province<input name="state" list="aevone-states" data-research-filter placeholder="Optional region" value="'+esc(f.state)+'"><datalist id="aevone-states">'+regionOpts+'</datalist></label>'+
-   '<label>Industry<select name="industry" data-research-filter><option value="">Choose sector</option>'+industryGroups+'</select></label>'+
-   '<label>Quantity<input type="number" min="1" max="50" step="1" name="quantity" data-research-filter value="'+esc(f.quantity)+'"></label>'+
-   '</div><p class="research-filterhint">195 countries. State/city suggestions are examples only; type any unlisted place. Some sectors need an additional research source.</p>';
+    '<label>Country<select name="country" data-research-filter><option value="">Choose country</option>'+countryOpts+'</select></label>'+
+    '<label>State / Province<select name="state" data-research-filter '+(f.country?'':'disabled')+'><option value="">'+(f.country?'Choose state / province':'Choose country first')+'</option>'+stateOpts+option('__other__','Other / Enter manually',f.state)+'</select>'+stateManual+'</label>'+
+    '<label>City<select name="city" data-research-filter '+(f.country&&f.state?'':'disabled')+'><option value="">'+(f.state?(cities.length?'Choose city':'No cities listed, choose Other'):'Choose state first')+'</option>'+cityOpts+option('__other__','Other / Enter manually',f.city)+'</select>'+cityManual+'</label>'+
+    '<label>Industry<select name="industry" data-research-filter><option value="">Choose sector</option>'+industryGroups+'</select></label>'+
+    '<label>Quantity<input type="number" min="1" max="50" step="1" name="quantity" data-research-filter value="'+esc(f.quantity)+'"></label>'+
+    '</div><p class="research-filterhint">195 countries · state/province dropdowns · city/town suggestions from your reference PDF. Locations may be incomplete: choose Other to type a missing place. Additional state labels: <a href="https://github.com/dr5hn/countries-states-cities-database" target="_blank" rel="noopener noreferrer">CSC Database (ODbL)</a>.</p>';
  }
  async dispatch(jobId){
   if(!jobId)return 'invalid_job';
