@@ -1,9 +1,9 @@
 import {esc,safeHref} from './util.mjs';
 import {countries, stateOptions, cityOptions, industries} from './geography.mjs';
 export class LeadWorkspace {
- constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.filters={country:'',city:'',state:'',industry:'',quantity:'20'};this.draft='';}
+ constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.dispatchAttempts=new Map();this.filters={country:'',city:'',state:'',industry:'',quantity:'20'};this.draft='';}
  async load(api,userId){this.api=api;this.userId=userId;await this.refresh();}
- async refresh(){this.jobs=await this.api.table('aevone_research_jobs',{select:'id,query,status,results,result_count,error,created_at',query:'order=created_at.desc&limit=60'});if(!this.active&&this.jobs.length)this.active=this.jobs[0].id;this.status='';}
+ async refresh(){this.jobs=await this.api.table('aevone_research_jobs',{select:'id,query,status,results,result_count,error,created_at,dispatch_requested_at',query:'order=created_at.desc&limit=60'});if(!this.active&&this.jobs.length)this.active=this.jobs[0].id;this.status='';}
 
  get current(){return this.jobs.find(x=>x.id===this.active);}
  setFilter(name,value){if(!Object.hasOwn(this.filters,name))return;this.filters[name]=String(value||'').slice(0,100);if(name==='country'){this.filters.state='';this.filters.city='';}if(name==='state')this.filters.city='';}
@@ -32,6 +32,9 @@ export class LeadWorkspace {
    '</div><p class="research-filterhint">195 countries. State/city suggestions are examples only; type any unlisted place. Some sectors need an additional research source.</p>';
  }
  async dispatch(jobId){
+  if(!jobId)return 'invalid_job';
+  const previous=this.dispatchAttempts.get(jobId)||{count:0,at:0};
+  this.dispatchAttempts.set(jobId,{count:previous.count+1,at:Date.now()});
   this.dispatchFor=jobId;this.lastDispatch='requesting';
   try{const response=await this.api.invoke('aevone-dispatch',{job_id:jobId});this.lastDispatch=response?.dispatched===true?'requested':String(response?.reason||'dispatch_unavailable');}
   catch(err){this.lastDispatch='request_failed'+(err?.status?'_http_'+err.status:'');}
