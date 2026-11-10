@@ -1,3 +1,5 @@
+import worldwideStates from './states-by-country.mjs';
+import referenceLocations from './cities-from-user-pdf.mjs';
 // AEVONE worldwide targeting: 195 states in the supplied reference, ISO country codes.
 // City/state suggestions are examples only. Free text is accepted for unlisted places.
 // Display labels are country names only; no businesses are inferred from this catalogue.
@@ -31,10 +33,27 @@ export const locations = {
  QA: {"Doha":["Doha"],"Al Rayyan":["Al Rayyan"],"Al Wakrah":["Al Wakrah"],"Al Daayen":["Lusail"]},
  OM: {"Muscat":["Muscat"],"Dhofar":["Salalah"],"North Al Batinah":["Sohar"]}
 };
-export function stateOptions(code){return Object.keys(locations[code]||{}).sort();}
-export function cityOptions(code,state=""){
- const states=locations[code]||{};
- return [...new Set((state&&states[state] ? states[state] : Object.values(states).flat()))].sort();
+
+// Open geographic catalogue: 4,931 state/region labels across 195 selected countries.
+// User PDF: 2,194 state-linked city/town suggestions across 75 countries.
+// Both datasets may contain older variants or incomplete coverage; manual entry remains available.
+const normaliseName=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('en').replace(/\s+/g,' ').trim();
+function sortedUnique(values){
+ const seen=new Set();
+ return values.filter(x=>typeof x==='string'&&x.trim()).filter(x=>{const k=normaliseName(x);if(seen.has(k))return false;seen.add(k);return true}).sort((a,b)=>a.localeCompare(b));
+}
+export function stateOptions(code){
+ return sortedUnique([...(worldwideStates[code]||[]),...Object.keys(locations[code]||{}),...Object.keys(referenceLocations[code]||{})]);
+}
+export function cityOptions(code,state=''){
+ if(!state||state==='__other__')return [];
+ const cities=[];
+ for(const source of [locations[code]||{},referenceLocations[code]||{}]){
+  for(const [region,listedCities] of Object.entries(source)){
+   if(normaliseName(region)===normaliseName(state))cities.push(...listedCities);
+  }
+ }
+ return sortedUnique(cities);
 }
 // Only supported OS source categories are enabled for research. Other sectors
 // remain visible as target categories, not falsely claimed as live integrations.
