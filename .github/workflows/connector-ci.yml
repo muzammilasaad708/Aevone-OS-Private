@@ -6,6 +6,8 @@ on:
       - 'web/registry.mjs'
       - 'web/lead.mjs'
       - 'web/geography.mjs'
+      - 'web/states-by-country.mjs'
+      - 'web/cities-from-user-pdf.mjs'
       - 'web/styles.css'
       - 'web/app.js'
       - 'supabase/functions/aevone-dispatch/**'
@@ -52,6 +54,8 @@ jobs:
       - name: Worldwide targeting and instant dispatch browser-model tests
         run: |
           node --check web/geography.mjs
+          node --check web/states-by-country.mjs
+          node --check web/cities-from-user-pdf.mjs
           node --check tests/geography_ui_test.mjs
           node tests/geography_ui_test.mjs
       - name: Node.js module import smoke test

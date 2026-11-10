@@ -9,6 +9,15 @@ for (const code of ['PK','TR','AE','US','CA','SA','IT','GB','PS','VA']) {
  assert.ok(countries.some(x=>x.code===code),code+' absent');
 }
 assert.ok(stateOptions('PK').includes('Sindh'));
+assert.equal(stateOptions('TR').length,81, 'All 81 Turkish provinces should be available');
+assert.equal(stateOptions('AE').length,7, 'All UAE emirates should be available');
+assert.ok(stateOptions('AL').includes('Kukës'), 'The PDF Albania regions must be indexed');
+assert.ok(cityOptions('AL','Kukës').includes('Bajram Curri'), 'The supplied PDF city must be available');
+assert.ok(cityOptions('AL','Shkodër').includes('Bajzë'), 'The supplied PDF town must be available');
+assert.ok(cityOptions('TR','İstanbul').includes('Istanbul'), 'Localised Turkish province name must match the Istanbul city');
+assert.ok(cityOptions('PK','Sindh').includes('Karachi'), 'Local Pakistan city fallback remains available');
+assert.ok(stateOptions('VA').length===0, 'Vatican City has no provinces and must not be invented');
+
 assert.ok(cityOptions('PK','Sindh').includes('Karachi'));
 assert.ok(cityOptions('TR','Istanbul').includes('Istanbul'));
 assert.deepEqual(cityOptions('WS',''),[]); // No invented city labels.
@@ -24,6 +33,19 @@ assert.match(w.fieldUI(),/name="city"/);
 assert.match(w.fieldUI(),/name="state"/);
 assert.match(w.fieldUI(),/name="industry"/);
 assert.match(w.fieldUI(),/name="quantity"/);
+assert.match(w.fieldUI(),/<select name="state"/);
+assert.match(w.fieldUI(),/<select name="city"/);
+assert.doesNotMatch(w.fieldUI(),/<input name="city" list=/);
+w.setFilter('state','__other__');
+w.setFilter('stateManual','Istanbul Province');
+w.setFilter('city','__other__');
+assert.match(w.fieldUI(),/name="cityManual"/);
+assert.throws(()=>w.filteredQuery(),/unlisted city name/);
+w.setFilter('cityManual','Istanbul');
+assert.match(w.filteredQuery(),/bakeries in Istanbul, Turkey/);
+w.setFilter('state','Istanbul');
+w.setFilter('city','Istanbul');
+
 assert.ok(industries.find(x=>x.label==='Personal Care'));
 assert.ok(industries.find(x=>x.label==='FinTech'));
 assert.ok(industries.find(x=>x.label==='EdTech'));
