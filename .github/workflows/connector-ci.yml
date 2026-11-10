@@ -5,6 +5,8 @@ on:
       - 'web/registry.json'
       - 'web/registry.mjs'
       - 'web/lead.mjs'
+      - 'web/geography.mjs'
+      - 'web/styles.css'
       - 'web/app.js'
       - 'supabase/functions/aevone-dispatch/**'
       - '.github/workflows/research.yml'
@@ -47,6 +49,11 @@ jobs:
         run: |
           node --check web/lead.mjs
           node --check web/app.js
+      - name: Worldwide targeting and instant dispatch browser-model tests
+        run: |
+          node --check web/geography.mjs
+          node --check tests/geography_ui_test.mjs
+          node tests/geography_ui_test.mjs
       - name: Node.js module import smoke test
         run: |
           node --input-type=module -e "import('./web/registry.mjs').then(m => { if (!Array.isArray(m.default) || m.default.length !== 61) process.exit(1); console.log('JS registry entries:', m.default.length); })"
