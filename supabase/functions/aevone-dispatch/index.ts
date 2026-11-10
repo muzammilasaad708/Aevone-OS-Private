@@ -33,19 +33,25 @@ Deno.serve(async(req:Request)=>{
   const job=jobs?.[0];
   if(!job||job.status!=="queued")return result(req,409,{dispatched:false,reason:"not_queued"});
   const age=Date.now()-Date.parse(job.created_at);
-  if(!Number.isFinite(age)||age<0||age>120000)return result(req,200,{dispatched:false,reason:"scheduled_fallback"});
+  // Previously, the 120-second cutoff blocked every older queued job from
+  // on-demand recovery. Only reject corrupt or future-dated jobs.
+  if(!Number.isFinite(age)||age< -300000)return result(req,409,{dispatched:false,reason:"invalid_job_created_at"});
   if(!githubToken)return result(req,200,{dispatched:false,reason:"dispatch_secret_not_configured"});
   // Conditional DB claim: one GitHub workflow_dispatch per queued research ID.
   const stamp=new Date().toISOString();
-  const claimed=await admin("aevone_research_jobs?select=id&id=eq."+encodeURIComponent(id)+"&user_id=eq."+encodeURIComponent(user.id)+"&status=eq.queued&dispatch_requested_at=is.null","PATCH",{dispatch_requested_at:stamp});
-  if(!Array.isArray(claimed)||claimed.length!==1)return result(req,200,{dispatched:false,reason:"already_requested"});
+  // Allow an explicitly retried queued job after 90 seconds. The conditional
+  // PATCH is atomic, and the worker separately claims queued -> running.
+  const staleBefore=new Date(Date.now()-90000).toISOString();
+  const claimWhere="aevone_research_jobs?select=id&id=eq."+encodeURIComponent(id)+"&user_id=eq."+encodeURIComponent(user.id)+"&status=eq.queued&or=(dispatch_requested_at.is.null,dispatch_requested_at.lt."+encodeURIComponent(staleBefore)+")";
+  const claimed=await admin(claimWhere,"PATCH",{dispatch_requested_at:stamp});
+  if(!Array.isArray(claimed)||claimed.length!==1)return result(req,200,{dispatched:false,reason:"already_requested_recently"});
   let ok=false;let githubStatus=0;
   try{
    const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),8000);
    try{
     const response=await fetch("https://api.github.com/repos/muzammilasaad708/Aevone-OS-Private/actions/workflows/research.yml/dispatches",{
      method:"POST",signal:controller.signal,
-     headers:{Authorization:"Bearer "+githubToken,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"},
+     headers:{Authorization:"Bearer "+githubToken,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2026-03-10","Content-Type":"application/json"},
      body:JSON.stringify({ref:"main",inputs:{job_id:id}})
     });
     githubStatus=response.status;

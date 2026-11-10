@@ -1,14 +1,61 @@
 import {esc,safeHref} from './util.mjs';
+import {countries, stateOptions, cityOptions, industries} from './geography.mjs';
 export class LeadWorkspace {
- constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;}
+ constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.filters={country:'',city:'',state:'',industry:'',quantity:'20'};this.draft='';}
  async load(api,userId){this.api=api;this.userId=userId;await this.refresh();}
  async refresh(){this.jobs=await this.api.table('aevone_research_jobs',{select:'id,query,status,results,result_count,error,created_at',query:'order=created_at.desc&limit=60'});if(!this.active&&this.jobs.length)this.active=this.jobs[0].id;this.status='';}
+
  get current(){return this.jobs.find(x=>x.id===this.active);}
+ setFilter(name,value){if(!Object.hasOwn(this.filters,name))return;this.filters[name]=String(value||'').slice(0,100);if(name==='country'){this.filters.state='';this.filters.city='';}if(name==='state')this.filters.city='';}
+ filteredQuery(){
+  const f=this.filters,industry=industries.find(x=>x.label===f.industry);
+  if(!f.country||!f.industry)return '';
+  if(!industry?.supported)throw new Error('This sector is in the target catalogue, but no discovery connector is enabled for it yet. Choose a supported directory category.');
+  const code=countries.find(c=>c.code===f.country);
+  if(!code)throw new Error('Choose a country');
+  const city=(f.city||f.state).trim(),place=[city,code.name].filter(Boolean).join(', ');
+  const quantity=Math.max(1,Math.min(50,Number(f.quantity)||20));
+  return 'Find '+quantity+' '+industry.searchTerm+' in '+place+'.';
+ }
+ fieldUI(){
+  const f=this.filters;
+  const countryOpts=countries.map(x=>'<option value="'+esc(x.code)+'"'+(x.code===f.country?' selected':'')+'>'+esc(x.name)+'</option>').join('');
+  const regionOpts=stateOptions(f.country).map(x=>'<option value="'+esc(x)+'"></option>').join('');
+  const cityOpts=cityOptions(f.country,f.state).map(x=>'<option value="'+esc(x)+'"></option>').join('');
+  const industryGroups=[...new Set(industries.map(x=>x.group))].map(group=>'<optgroup label="'+esc(group)+'">'+industries.filter(x=>x.group===group).map(x=>'<option value="'+esc(x.label)+'"'+(f.industry===x.label?' selected':'')+'>'+esc(x.label)+(x.supported?'':' (source pending)')+'</option>').join('')+'</optgroup>').join('');
+  return '<div class="research-filtergrid" aria-label="Global business research filters">'+
+   '<label>Country<select name="country" data-research-filter><option value="">Choose country</option>'+countryOpts+'</select></label>'+
+   '<label>City<input name="city" list="aevone-cities" data-research-filter placeholder="City, or type any name" value="'+esc(f.city)+'"><datalist id="aevone-cities">'+cityOpts+'</datalist></label>'+
+   '<label>State / Province<input name="state" list="aevone-states" data-research-filter placeholder="Optional region" value="'+esc(f.state)+'"><datalist id="aevone-states">'+regionOpts+'</datalist></label>'+
+   '<label>Industry<select name="industry" data-research-filter><option value="">Choose sector</option>'+industryGroups+'</select></label>'+
+   '<label>Quantity<input type="number" min="1" max="50" step="1" name="quantity" data-research-filter value="'+esc(f.quantity)+'"></label>'+
+   '</div><p class="research-filterhint">195 countries. State/city suggestions are examples only; type any unlisted place. Some sectors need an additional research source.</p>';
+ }
+ async dispatch(jobId){
+  this.dispatchFor=jobId;this.lastDispatch='requesting';
+  try{const response=await this.api.invoke('aevone-dispatch',{job_id:jobId});this.lastDispatch=response?.dispatched===true?'requested':String(response?.reason||'dispatch_unavailable');}
+  catch(err){this.lastDispatch='request_failed'+(err?.status?'_http_'+err.status:'');}
+  return this.lastDispatch;
+ }
  render(){const j=this.current;return `<div class="leadchat-header"><div><div class="eyebrow">AEVONE LEAD INTELLIGENCE</div><h2>Research businesses, naturally.</h2><p>Real source-backed results. No invented decision-makers, emails or audit claims.</p></div><span class="research-pill">Global research queue</span></div>
  <div class="research-layout"><aside class="research-sidebar"><div class="research-sidehead"><strong>Research history</strong><button type="button" data-lead-act="refresh" title="Reload results">↻</button><button type="button" data-lead-act="new" aria-label="New research">+</button></div><div class="research-sidejobs">${this.jobs.map(x=>`<button class="research-job ${x.id===this.active?'chosen':''}" data-research-id="${esc(x.id)}"><strong>${esc(x.query.slice(0,65))}</strong><span>${esc(x.status)} · ${Number(x.result_count)||0} results</span></button>`).join('')||'<p>No research sessions yet.</p>'}</div><div class="research-disclaimer">Sources can be incomplete. Review records before outreach.</div></aside>
- <section class="research-main">${j?`<div class="research-thread"><div class="research-prompt">${esc(j.query)}</div><div class="research-answer"><strong>Research status: ${esc(j.status)}</strong>${j.status==='queued'?`<p>${j.id===this.dispatchFor&&this.lastDispatch==='requested'?'On-demand GitHub workflow requested. Waiting for worker to start.':j.id===this.dispatchFor&&this.lastDispatch!=='scheduled'?'Immediate dispatch unavailable ('+esc(this.lastDispatch)+'). Scheduled worker remains the backup.':'Queued. Awaiting secure on-demand dispatch or the scheduled fallback.'}</p>`:j.status==='running'?'<p>Collecting public directory records…</p>':j.status==='failed'?`<p>${esc(j.error||'Source unavailable')}</p>`:`<p>${Number(j.result_count)||0} directory listings returned. Identity and contact data remain unverified until reviewed.</p>`}</div>
+ <section class="research-main">${j?`<div class="research-thread"><div class="research-prompt">${esc(j.query)}</div><div class="research-answer"><strong>Research status: ${esc(j.status)}</strong>${j.status==='queued'?`<p>${j.id===this.dispatchFor&&this.lastDispatch==='requested'?'On-demand GitHub workflow requested. Waiting for worker to start.':j.id===this.dispatchFor&&this.lastDispatch!=='scheduled'?'Immediate dispatch unavailable ('+esc(this.lastDispatch)+'). Scheduled worker remains the backup.':'Queued. Use Retry instant dispatch to request a worker now.'}</p><button class="ghostbtn" type="button" data-lead-act="dispatch">Retry instant dispatch ↗</button>`:j.status==='running'?'<p>Collecting public directory records…</p>':j.status==='failed'?`<p>${esc(j.error||'Source unavailable')}</p>`:`<p>${Number(j.result_count)||0} directory listings returned. Identity and contact data remain unverified until reviewed.</p>`}</div>
  <div class="research-results">${(Array.isArray(j.results)?j.results:[]).map((x,i)=>`<article class="research-card"><div class="research-cardtop"><span class="research-monogram">${esc(x.name?.charAt(0)||'B')}</span><div><strong>${esc(x.name||'Unknown')}</strong><small>${esc([x.city,x.country].filter(Boolean).join(', '))}</small></div><span class="tag tag-unverified">Unverified</span></div><div class="research-fields"><span>Website: ${safeHref(x.website)?`<a href="${esc(x.website)}" target="_blank" rel="noopener noreferrer">Official site ↗</a>`:'Not available'}</span><span>Business phone: ${esc(x.phone||'Not available')}</span><span>Email: ${esc(x.email||'Not available')}</span><span>Founder/CEO: Not publicly verified</span>${x.apollo_match?`<span>Apollo organization match: ${esc(x.apollo_match.name||"Provider-listed")}, pending independent verification</span>`:""}<span>Confidence: ${esc(x.confidence||"Unverified")}</span>${String(x.source_name||"").startsWith("OpenStreetMap") ? '<span>Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a> (ODbL)</span>' : ""}<span>Source: ${safeHref(x.source_url)?`<a href="${esc(x.source_url)}" target="_blank" rel="noopener noreferrer">${esc(x.source_name||'Source record')} ↗</a>`:'Not available'}</span></div><button class="ghostbtn" data-save-result="${i}">Save to CRM ↗</button></article>`).join('')}</div></div>`:`<div class="research-welcome"><span>✦</span><h3>Which businesses should we research?</h3><p>Describe a business category, city and country. Results contain source-linked, unverified listings.</p><div class="research-examples">Bakeries in Istanbul, Turkey · Perfume shops in Dubai, UAE · Hotels in Karachi, Pakistan</div></div>`}
- <form class="research-compose" id="research-form"><textarea name="query" required maxlength="1000" rows="3" placeholder="Find 30 perfume shops in Dubai, UAE…"></textarea><div><span>${this.busy?'Submitting research…':'Public-source discovery · Source URLs · CRM saving'}</span><button class="primary compact" type="submit" ${this.busy?'disabled':''}>Research ↗</button></div></form></section></div>`;}
- async submit(q){if(this.busy)return;const val=q.trim();if(val.length<2||val.length>1000)throw new Error('Enter a research prompt of 2–1000 characters');this.busy=true;try{const result=await this.api.table('aevone_research_jobs',{method:'POST',body:{query:val,user_id:this.userId},headers:{Prefer:'return=representation'}});const created=result?.[0]?.id;if(!created)throw new Error('Research was not accepted: no job ID was returned');this.active=created;await this.refresh();this.dispatchFor=created;this.lastDispatch='scheduled';try{const response=await this.api.invoke('aevone-dispatch',{job_id:created});this.lastDispatch=response?.dispatched===true?'requested':String(response?.reason||'dispatch_unavailable');}catch{this.lastDispatch='dispatch_request_failed';}}finally{this.busy=false;}}
+ <form class="research-compose" id="research-form">${this.fieldUI()}<textarea name="query" maxlength="1000" rows="2" placeholder="Optional natural-language query. Leave blank to use the five filters.">${esc(this.draft)}</textarea><div><span>${this.busy?'Submitting research…':'Public-source discovery · Source URLs · CRM saving'}</span><button class="primary compact" type="submit" ${this.busy?'disabled':''}>Research ↗</button></div></form></section></div>`;}
+ async submit(q){
+  if(this.busy)return;
+  let val=String(q||'').trim();
+  if(!val)val=this.filteredQuery();
+  if(val.length<2||val.length>1000)throw new Error('Enter a research prompt or select country and industry.');
+  this.busy=true;
+  try{
+   const result=await this.api.table('aevone_research_jobs',{method:'POST',body:{query:val,user_id:this.userId},headers:{Prefer:'return=representation'}});
+   const created=result?.[0]?.id;
+   if(!created)throw new Error('Research was not accepted: no job ID was returned');
+   this.active=created;this.draft='';
+   await this.refresh();
+   await this.dispatch(created);
+  }finally{this.busy=false;}
+ }
  async save(i){const job=this.current;if(!job||job.status!=='complete')throw new Error('Research is not completed');const x=job.results?.[i];if(!x||!x.name||!x.source_url)throw new Error('Invalid research result');const body={name:x.name,city:x.city||'',country:x.country||'',website:x.website||'',source_name:x.source_name||'OpenStreetMap',source_url:x.source_url,created_by:this.userId,status:'unverified',notes:[x.phone?'Public phone (source-listed): '+x.phone:'',x.email?'Public email (source-listed): '+x.email:''].filter(Boolean).join('\n')};await this.api.table('aevone_leads',{method:'POST',body,headers:{Prefer:'return=representation'}});return x.name;}
 }
