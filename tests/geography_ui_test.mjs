@@ -48,4 +48,7 @@ await w.submit('Find 20 perfume shops in Dubai, United Arab Emirates.');
 assert.equal(w.lastDispatch,'requested');
 assert.equal(stored.length,1);
 assert.equal(stored[0].fn,'aevone-dispatch');
+assert.equal(w.dispatchAttempts.get(w.active).count,1);
+await w.dispatch(w.active);
+assert.equal(w.dispatchAttempts.get(w.active).count,2);
 console.log('195 country options, 5 filters, regional suggestions and instant dispatch passed.');
