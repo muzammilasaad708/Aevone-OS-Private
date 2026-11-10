@@ -43,9 +43,21 @@ async function pollResearch(){
  if(!leadResearch.jobs.some(j=>j.status==='queued'||j.status==='running')) return;
  researchPollBusy=true;
  try{
-  const signature=jobs=>JSON.stringify(jobs.map(j=>[j.id,j.status,j.result_count,j.error]));
+  const signature=jobs=>JSON.stringify(jobs.map(j=>[j.id,j.status,j.result_count,j.error,j.dispatch_requested_at]));
   const old=signature(leadResearch.jobs);
   await leadResearch.refresh();
+  // Recover stuck queues while this private app is open. One immediate
+  // dispatch happens on submit; subsequent automatic attempts are rate-limited
+  // to >=95 seconds apart and capped at three per page session.
+  const queued=leadResearch.current;
+  if(queued?.status==='queued'){
+   const attempts=leadResearch.dispatchAttempts.get(queued.id);
+   const lastLocal=attempts?.at||0;
+   const lastServer=Date.parse(queued.dispatch_requested_at||'')||0;
+   if((!attempts||attempts.count<3) && Date.now()-Math.max(lastLocal,lastServer)>=95000){
+    await leadResearch.dispatch(queued.id);
+   }
+  }
   if(signature(leadResearch.jobs)!==old){
    const draft=root.querySelector('#research-form textarea')?.value||'';
    render();
