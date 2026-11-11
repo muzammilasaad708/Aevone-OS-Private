@@ -2,6 +2,7 @@ import {SupabaseApi,ApiError} from './supabase-rest.mjs';
 import {BrainWorkspace} from './brain.mjs';
 import {LeadWorkspace} from './lead.mjs';
 import registry from './registry.mjs';
+import {loadCountryGeography} from './geography.mjs';
 import {esc,safeHref,shortDate,providerNames,navGroups,validateConfig,validateSecretInput,asCsv} from './util.mjs';
 const root=document.getElementById('app');
 const config=window.AEVONE_CONFIG;
@@ -214,6 +215,7 @@ root.addEventListener('change',async event=>{
   if(form){
    const draft=form.querySelector('textarea[name=query]')?.value||'';
    leadResearch.setFilter(event.target.name,event.target.value);
+    if(event.target.name==='country')await loadCountryGeography(event.target.value);
    leadResearch.draft=draft;
    if(['country','state','city'].includes(event.target.name))render();
    return;
