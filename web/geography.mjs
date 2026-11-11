@@ -4,6 +4,14 @@ import referenceLocations from './cities-from-user-pdf.mjs';
 // Loaded lazily (one country JSON per selection) so 150k places never block UI boot.
 const cscCountries = new Map();
 export function hasCountryGeography(code){return cscCountries.has(code);}
+export function cityPoint(code,state,city){
+ const data=cscCountries.get(code);
+ if(!data||!city||!state)return null;
+ const match=data.states.find(x=>normaliseName(x.name)===normaliseName(state));
+ const value=match?.points?.[city];
+ if(!Array.isArray(value)||value.length!==2||!value.every(Number.isFinite))return null;
+ return {country_code:code,city,latitude:value[0],longitude:value[1]};
+}
 export async function loadCountryGeography(code){
  if(!/^[A-Z]{2}$/.test(code||''))return false;
  if(cscCountries.has(code))return true;
