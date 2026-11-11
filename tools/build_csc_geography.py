@@ -46,7 +46,17 @@ def normalize(raw):
                              for city in (state.get("cities") or [])
                              if isinstance(city, dict) and str(city.get("name") or "").strip()},
                             key=str.casefold)
-            states.append({"name": str(state["name"]).strip(), "cities": cities})
+            points = {}
+            for item in (state.get("cities") or []):
+                if not isinstance(item, dict) or not item.get("name"):
+                    continue
+                try:
+                    lat, lon = float(item.get("latitude")), float(item.get("longitude"))
+                    if -90 <= lat <= 90 and -180 <= lon <= 180:
+                        points[str(item["name"]).strip()] = [round(lat, 6), round(lon, 6)]
+                except (TypeError, ValueError):
+                    pass
+            states.append({"name": str(state["name"]).strip(), "cities": cities, "points": points})
         unassigned = sorted({str(city["name"]).strip()
                              for city in (country.get("cities") or [])
                              if isinstance(city, dict) and str(city.get("name") or "").strip()},
