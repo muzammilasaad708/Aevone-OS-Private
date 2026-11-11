@@ -76,6 +76,10 @@ jobs:
           assert any('istanbul' in s['name'].casefold() or 'i̇stanbul' in s['name'].casefold() for s in turkey['states'])
           print('CSC real release verified:',manifest)
           PY
+      - name: Instant Supabase research core tests
+        run: |
+          node --check supabase/functions/aevone-research-now/core.mjs
+          node tests/research_now_test.mjs
       - name: Lead workspace JavaScript syntax
         run: |
           node --check web/lead.mjs
