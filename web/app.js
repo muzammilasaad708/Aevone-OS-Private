@@ -254,7 +254,7 @@ root.addEventListener('submit',async event=>{
   }
   if(form.id==='research-form'){try{
    for(const key of ['country','city','state','stateManual','cityManual','industry','quantity'])if(values[key]!==undefined)leadResearch.filters[key]=String(values[key]);
-   await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved, but instant dispatch is unavailable ('+leadResearch.lastDispatch+'). Scheduled worker is the backup.',leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
+   await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved. '+leadResearch.dispatchHelp(),leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
   if(form.id==='lead-form'){
    const body={name:String(values.name||'').trim(),city:String(values.city||'').trim(),country:String(values.country||'').trim(),website:String(values.website||'').trim(),source_url:String(values.source_url||'').trim(),source_name:String(values.source_name||'').trim(),notes:String(values.notes||'').trim(),created_by:state.user.id,status:'unverified'};
    if(!body.name)throw new ApiError('Company name required');
