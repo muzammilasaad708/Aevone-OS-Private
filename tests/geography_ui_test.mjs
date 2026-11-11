@@ -64,12 +64,12 @@ w.api={
    if(method==='POST')return [{id:'bbbbbbbb-1111-2222-3333-aaaaaaaaaaaa'}];
    return [{id:'bbbbbbbb-1111-2222-3333-aaaaaaaaaaaa',query:'Find 20 perfume shops in Dubai, United Arab Emirates.',status:'queued',result_count:0,results:[]}];
  },
- invoke:async(fn,body)=>{stored.push({fn,body});return {dispatched:true};}
+ invoke:async(fn,body)=>{stored.push({fn,body});return {accepted:true,method:'supabase_edge_background'};}
 };
 await w.submit('Find 20 perfume shops in Dubai, United Arab Emirates.');
 assert.equal(w.lastDispatch,'requested');
 assert.equal(stored.length,1);
-assert.equal(stored[0].fn,'aevone-dispatch');
+assert.equal(stored[0].fn,'aevone-research-now');
 assert.equal(w.dispatchAttempts.get(w.active).count,1);
 await w.dispatch(w.active);
 assert.equal(w.dispatchAttempts.get(w.active).count,2);
