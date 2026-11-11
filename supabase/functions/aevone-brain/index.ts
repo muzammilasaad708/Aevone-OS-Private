@@ -1,6 +1,6 @@
 // AEVONE AI Brain: authenticated multi-provider proxy. Keys never reach the browser.
 // All provider hosts are constants; no user-supplied URLs are fetched.
-import {PROVIDERS,DAILY_REQUEST_LIMIT,normalizeRequest,normalizeMessages,modelAllowed,candidateRoutes,normalizedModels,safeError,shouldFallback,extractText,cleanAnswer,providerStatus} from './core.mjs';
+import {PROVIDERS,DAILY_REQUEST_LIMIT,normalizeRequest,normalizeMessages,modelAllowed,candidateRoutes,modelFallbacks,normalizedModels,safeError,shouldFallback,extractText,cleanAnswer,providerStatus} from './core.mjs';
 const D = Deno;
 const PROJECT=D.env.get('SUPABASE_URL')??'';
 const SERVICE=D.env.get('SUPABASE_SERVICE_ROLE_KEY')??'';
@@ -66,7 +66,11 @@ async function modelList(provider:string,key:string){
   // Gemini's native models endpoint expects a Google API key header.
   if(provider==='gemini'){delete headers.Authorization;headers['x-goog-api-key']=key;}
   const result=await fetch(config.models,{headers,signal:controller.signal});if(!result.ok)throw Error(safeError(result.status));
-  return normalizedModels(provider,await result.json(),{allowPaid:ALLOW_PAID});
+  const data=await result.json();
+  if(provider==='gemini'&&Array.isArray(data?.models)){
+   data.models=data.models.filter((m:any)=>!Array.isArray(m.supportedGenerationMethods)||m.supportedGenerationMethods.includes('generateContent'));
+  }
+  return normalizedModels(provider,data,{allowPaid:ALLOW_PAID});
  }finally{clearTimeout(t);}
 }
 D.serve(async(req:Request)=>{
@@ -101,9 +105,24 @@ D.serve(async(req:Request)=>{
   await recordRequest(who.id,validated.provider);
   const tried=[];
   for(const option of candidates.slice(0,4)){
-   const result=await chatUpstream(option.provider,option.model,keys.get(option.provider)!,validated.messages);
-   tried.push({provider:option.provider,status:result.ok?'success':safeError(result.status)});
+   const key=keys.get(option.provider)!;
+   const result=await chatUpstream(option.provider,option.model,key,validated.messages);
+   tried.push({provider:option.provider,model:option.model,status:result.ok?'success':safeError(result.status)});
    if(result.ok)return reply(req,200,{answer:result.content,provider:option.provider,model:option.model,usage:result.usage,attempts:tried.length,verified:false});
+   // A deprecated model must never disable the entire free provider.
+   // For auto routing (or a provider without a user-selected model), find
+   // the currently advertised chat models, then retry at most two alternatives.
+   if([400,404,422].includes(result.status)&&(validated.provider==='auto'||!validated.model)){
+    try{
+     const listed=await modelList(option.provider,key);
+     for(const model of modelFallbacks(option.provider,listed,option.model)){
+      const attempt=await chatUpstream(option.provider,model,key,validated.messages);
+      tried.push({provider:option.provider,model,status:attempt.ok?'success':safeError(attempt.status)});
+      if(attempt.ok)return reply(req,200,{answer:attempt.content,provider:option.provider,model,usage:attempt.usage,attempts:tried.length,verified:false});
+      if(![400,404,422].includes(attempt.status))break;
+     }
+    }catch{tried.push({provider:option.provider,status:'Could not fetch available model catalog'});}
+   }
    if(validated.provider!=='auto'||!shouldFallback(result.status))break;
   }
   return reply(req,502,{error:'Configured providers could not generate a response. Check available credits/models in their dashboards.',attempts:tried});
