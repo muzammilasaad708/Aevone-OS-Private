@@ -51,7 +51,7 @@ Deno.serve(async(req:Request)=>{
    try{
     const response=await fetch("https://api.github.com/repos/muzammilasaad708/Aevone-OS-Private/actions/workflows/research.yml/dispatches",{
      method:"POST",signal:controller.signal,
-     headers:{Authorization:"Bearer "+githubToken,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2026-03-10","Content-Type":"application/json"},
+     headers:{Authorization:"Bearer "+githubToken,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","User-Agent":"AEVONE-OS-Dispatch","Content-Type":"application/json"},
      body:JSON.stringify({ref:"main",inputs:{job_id:id}})
     });
     githubStatus=response.status;
@@ -59,8 +59,25 @@ Deno.serve(async(req:Request)=>{
    }finally{clearTimeout(timer);}
   }catch{ok=false;}
   if(!ok){
+   // A private GitHub repo returns 404 when the token cannot read it, even
+   // though its URL is valid. Distinguish that from a hidden workflow.
+   let reason=githubStatus?"github_http_"+githubStatus:"github_request_unavailable";
+   if(githubStatus===404){
+    try{
+     const headers={Authorization:"Bearer "+githubToken,Accept:"application/vnd.github+json","X-GitHub-Api-Version":"2022-11-28","User-Agent":"AEVONE-OS-Dispatch"};
+     const root="https://api.github.com/repos/muzammilasaad708/Aevone-OS-Private";
+     const repoCheck=await fetch(root,{headers,signal:AbortSignal.timeout(4000)});
+     if(repoCheck.status===404||repoCheck.status===401)reason="github_token_cannot_access_private_repository";
+     else if(repoCheck.ok){
+      const workflowCheck=await fetch(root+"/actions/workflows/research.yml",{headers,signal:AbortSignal.timeout(4000)});
+      reason=workflowCheck.status===404?"github_workflow_not_visible_to_token":workflowCheck.ok?"github_dispatch_denied_check_actions_write_permission":"github_actions_access_check_http_"+workflowCheck.status;
+     }else reason="github_repo_check_http_"+repoCheck.status;
+    }catch{reason="github_http_404_repo_check_unavailable";}
+   }else if(githubStatus===401)reason="github_dispatch_token_invalid";
+   else if(githubStatus===403)reason="github_dispatch_forbidden_check_actions_write";
+   // Release the claim so the scheduled worker or a corrected credential can retry.
    await admin("aevone_research_jobs?select=id&id=eq."+encodeURIComponent(id)+"&dispatch_requested_at=eq."+encodeURIComponent(stamp),"PATCH",{dispatch_requested_at:null}).catch(()=>{});
-   return result(req,200,{dispatched:false,reason:githubStatus?"github_http_"+githubStatus:"github_request_unavailable"});
+   return result(req,200,{dispatched:false,reason});
   }
   return result(req,200,{dispatched:true,reason:"targeted_workflow_requested"});
  }catch{return result(req,503,{dispatched:false,reason:"dispatch_unavailable"});}
