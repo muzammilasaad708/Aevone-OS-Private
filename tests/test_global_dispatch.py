@@ -99,9 +99,10 @@ class TargetedDispatchTests(unittest.TestCase):
   workflow=(ROOT/'.github/workflows/research.yml').read_text()
   edge=(ROOT/'supabase/functions/aevone-dispatch/index.ts').read_text()
   self.assertIn('AEVONE_JOB_ID:',workflow)
+  self.assertIn('aevone-research-now',edge)
   self.assertIn('job_id:id',edge)
-  self.assertIn('response.status===200||response.status===204',edge)
-  self.assertIn('github_http_',edge)
+  self.assertIn('supabase_edge_instant',edge)
+  self.assertNotIn('api.github.com',edge)
 
 if __name__=='__main__':
  unittest.main()
