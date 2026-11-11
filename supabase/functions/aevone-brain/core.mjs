@@ -2,8 +2,8 @@
 // Never put credentials in this module.
 export const PROVIDERS=Object.freeze({
  openrouter:{name:'OpenRouter',url:'https://openrouter.ai/api/v1/chat/completions',models:'https://openrouter.ai/api/v1/models',defaultModel:'openrouter/free',tier:'free',env:'OPENROUTER_API_KEY'},
- groq:{name:'Groq Cloud',url:'https://api.groq.com/openai/v1/chat/completions',models:'https://api.groq.com/openai/v1/models',defaultModel:'llama-3.3-70b-versatile',tier:'free-tier',env:'GROQ_API_KEY'},
- gemini:{name:'Google Gemini',url:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',models:'https://generativelanguage.googleapis.com/v1beta/models',defaultModel:'gemini-2.5-flash',tier:'free-tier',env:'GEMINI_API_KEY'},
+ groq:{name:'Groq Cloud',url:'https://api.groq.com/openai/v1/chat/completions',models:'https://api.groq.com/openai/v1/models',defaultModel:'openai/gpt-oss-120b',tier:'free-tier',env:'GROQ_API_KEY'},
+ gemini:{name:'Google Gemini',url:'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',models:'https://generativelanguage.googleapis.com/v1beta/models',defaultModel:'gemini-3.5-flash-lite',tier:'free-tier',env:'GEMINI_API_KEY'},
  huggingface:{name:'Hugging Face',url:'https://router.huggingface.co/v1/chat/completions',models:'https://router.huggingface.co/v1/models',defaultModel:'openai/gpt-oss-120b:fastest',tier:'credits',env:'HUGGINGFACE_TOKEN'},
  cerebras:{name:'Cerebras',url:'https://api.cerebras.ai/v1/chat/completions',models:'https://api.cerebras.ai/v1/models',defaultModel:'llama3.1-8b',tier:'free-tier',env:'CEREBRAS_API_KEY'},
  openai:{name:'OpenAI',url:'https://api.openai.com/v1/chat/completions',models:'https://api.openai.com/v1/models',defaultModel:'gpt-4.1-mini',tier:'paid',env:'OPENAI_API_KEY'},
@@ -62,6 +62,24 @@ export function normalizedModels(provider,raw,{allowPaid=false}={}){
  const mapped=values.map(item=>typeof item==='string'?{id:item}:({id:item?.id?.replace(/^models\//,'')||item?.name?.replace(/^models\//,'')||'',pricing:item?.pricing})).filter(x=>validModel(x.id));
  const filtered=mapped.filter(x=>modelAllowed(provider,x.id,allowPaid));
  return [...new Map(filtered.map(x=>[x.id,{id:x.id,free:provider==='openrouter'?x.id.endsWith(':free'):!allowPaid,pricing:x.pricing??null}])).values()].slice(0,150);
+}
+// Choose only models actually advertised by the user's provider account.
+// Built-in free-only/paid-mode policy remains enforced upstream.
+export function modelFallbacks(provider,items,previous=''){
+ const ids=(items||[]).map(x=>x.id).filter(x=>typeof x==='string'&&x!==previous);
+ const good=ids.filter(id=>{
+  const s=id.toLowerCase();
+  if(provider==='openrouter')return s.endsWith(':free');
+  if(provider==='gemini')return s.includes('flash')&&!/(live|image|audio|tts|embedding|veo|video)/.test(s);
+  if(provider==='groq')return /(gpt-oss|qwen|llama)/.test(s)&&!/(guard|whisper|tts|audio|vision)/.test(s);
+  if(provider==='cerebras')return /(gpt-oss|qwen|llama)/.test(s);
+  return true;
+ });
+ const preferred={openrouter:['openrouter/free'],groq:['openai/gpt-oss-120b','openai/gpt-oss-20b'],gemini:['gemini-3.5-flash-lite','gemini-3.8-flash'],cerebras:[]}[provider]||[];
+ return [...good].sort((a,b)=>{
+  const pa=preferred.indexOf(a),pb=preferred.indexOf(b);
+  return (pa<0?100:pa)-(pb<0?100:pb) || a.localeCompare(b);
+ }).slice(0,2);
 }
 export function safeError(status){
  if(status===401||status===403)return 'Provider rejected the stored API credential or permissions';

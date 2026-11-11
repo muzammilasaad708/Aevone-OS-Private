@@ -14,13 +14,14 @@ class CSCGeographyTests(unittest.TestCase):
     def test_nested_countries_states_and_cities(self):
         fixture = [
             {"iso2":"IT","name":"Italy","states":[
-                {"name":"Abruzzo","cities":[{"name":"L'Aquila"},{"name":"Pescara"},{"name":"L'Aquila"}]}]},
+                {"name":"Abruzzo","cities":[{"name":"L'Aquila","latitude":"42.35","longitude":"13.40"},{"name":"Pescara"},{"name":"L'Aquila"}]}]},
             {"iso2":"TR","name":"Turkey","states":[
                 {"name":"İstanbul","cities":[{"name":"Istanbul"},{"name":"Kadıköy"}]}]},
             {"iso2":"VA","name":"Vatican City","states":[],"cities":[{"name":"Vatican City"}]}
         ]
         index = csc.normalize(fixture)
         self.assertEqual(index["IT"]["states"][0]["cities"], ["L'Aquila","Pescara"])
+        self.assertEqual(index["IT"]["states"][0]["points"]["L'Aquila"], [42.35, 13.4])
         self.assertEqual(index["TR"]["states"][0]["name"], "İstanbul")
         self.assertEqual(index["VA"]["unassigned"], ["Vatican City"])
         self.assertEqual(index["VA"]["states"], [])
