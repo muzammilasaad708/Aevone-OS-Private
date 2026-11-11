@@ -1,5 +1,5 @@
 import {esc,safeHref} from './util.mjs';
-import {countries, stateOptions, cityOptions, industries} from './geography.mjs';
+import {countries, stateOptions, cityOptions, hasCountryGeography, industries} from './geography.mjs';
 export class LeadWorkspace {
  constructor(){this.jobs=[];this.active=null;this.error='';this.busy=false;this.tab='Chat';this.api=null;this.userId=null;this.onSave=null;this.status='';this.lastDispatch='scheduled';this.dispatchFor=null;this.dispatchAttempts=new Map();this.filters={country:'',city:'',state:'',stateManual:'',cityManual:'',industry:'',quantity:'20'};this.draft='';}
  async load(api,userId){this.api=api;this.userId=userId;await this.refresh();}
@@ -46,10 +46,10 @@ export class LeadWorkspace {
   return '<div class="research-filtergrid" aria-label="Global business research filters">'+
     '<label>Country<select name="country" data-research-filter><option value="">Choose country</option>'+countryOpts+'</select></label>'+
     '<label>State / Province<select name="state" data-research-filter '+(f.country?'':'disabled')+'><option value="">'+(f.country?'Choose state / province':'Choose country first')+'</option>'+stateOpts+option('__other__','Other / Enter manually',f.state)+'</select>'+stateManual+'</label>'+
-    '<label>City<select name="city" data-research-filter '+(f.country&&f.state?'':'disabled')+'><option value="">'+(f.state?(cities.length?'Choose city':'No cities listed, choose Other'):'Choose state first')+'</option>'+cityOpts+option('__other__','Other / Enter manually',f.city)+'</select>'+cityManual+'</label>'+
+    '<label>City<select name="city" data-research-filter '+(f.country&&(f.state||!states.length)?'':'disabled')+'><option value="">'+(f.state?(cities.length?'Choose city':'No cities listed, choose Other'):'Choose state first')+'</option>'+cityOpts+option('__other__','Other / Enter manually',f.city)+'</select>'+cityManual+'</label>'+
     '<label>Industry<select name="industry" data-research-filter><option value="">Choose sector</option>'+industryGroups+'</select></label>'+
     '<label>Quantity<input type="number" min="1" max="50" step="1" name="quantity" data-research-filter value="'+esc(f.quantity)+'"></label>'+
-    '</div><p class="research-filterhint">195 countries · state/province dropdowns · city/town suggestions from your reference PDF. Locations may be incomplete: choose Other to type a missing place. Additional state labels: <a href="https://github.com/dr5hn/countries-states-cities-database" target="_blank" rel="noopener noreferrer">CSC Database (ODbL)</a>.</p>';
+    '</div><p class="research-filterhint">Geography: '+(hasCountryGeography(f.country)?'CSC verified snapshot loaded':'offline backup suggestions; full CSC snapshot not loaded')+' · Data © <a href="https://github.com/dr5hn/countries-states-cities-database" target="_blank" rel="noopener noreferrer">CSC contributors (ODbL 1.0)</a>. Select Other to enter missing places.</p>';
  }
  async dispatch(jobId){
   if(!jobId)return 'invalid_job';
