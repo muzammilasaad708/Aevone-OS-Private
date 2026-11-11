@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { countries, stateOptions, cityOptions, industries } from '../web/geography.mjs';
+import { countries, stateOptions, cityOptions, industries, loadCountryGeography, hasCountryGeography } from '../web/geography.mjs';
 import { LeadWorkspace } from '../web/lead.mjs';
 
 // Strict country-count regression: 195 recognized states (including 2 observers).
@@ -74,3 +74,15 @@ assert.equal(w.dispatchAttempts.get(w.active).count,1);
 await w.dispatch(w.active);
 assert.equal(w.dispatchAttempts.get(w.active).count,2);
 console.log('195 country options, 5 filters, regional suggestions and instant dispatch passed.');
+
+const originalFetch=globalThis.fetch;
+try{
+ globalThis.fetch=async()=>new Response(JSON.stringify({
+  code:'IT',country:'Italy',states:[{name:'Abruzzo',cities:["L'Aquila",'Pescara']}],unassigned:[]
+ }),{status:200,headers:{'Content-Type':'application/json'}});
+ assert.equal(await loadCountryGeography('IT'),true);
+ assert.equal(hasCountryGeography('IT'),true);
+ assert.deepEqual(stateOptions('IT'),['Abruzzo']);
+ assert.deepEqual(cityOptions('IT','Abruzzo'),["L'Aquila",'Pescara']);
+}finally{globalThis.fetch=originalFetch;}
+console.log('CSC snapshot correctly replaces incomplete manual suggestions.');

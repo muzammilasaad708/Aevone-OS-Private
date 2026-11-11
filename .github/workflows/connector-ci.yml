@@ -5,12 +5,16 @@ on:
       - 'web/registry.json'
       - 'web/registry.mjs'
       - 'web/lead.mjs'
+      - 'web/brain.mjs'
+      - 'web/supabase-rest.mjs'
       - 'web/geography.mjs'
       - 'web/states-by-country.mjs'
       - 'web/cities-from-user-pdf.mjs'
       - 'web/styles.css'
       - 'web/app.js'
       - 'supabase/functions/aevone-dispatch/**'
+      - 'supabase/functions/aevone-brain/**'
+      - 'tools/**'
       - '.github/workflows/research.yml'
       - 'tests/**'
       - 'backend/**'
@@ -21,8 +25,12 @@ on:
       - 'web/registry.json'
       - 'web/registry.mjs'
       - 'web/lead.mjs'
+      - 'web/brain.mjs'
+      - 'web/supabase-rest.mjs'
       - 'web/app.js'
       - 'supabase/functions/aevone-dispatch/**'
+      - 'supabase/functions/aevone-brain/**'
+      - 'tools/**'
       - '.github/workflows/research.yml'
       - 'tests/**'
       - 'backend/**'
@@ -44,9 +52,15 @@ jobs:
       - name: Install pinned ISO country catalogue
         run: python -m pip install --disable-pip-version-check 'pycountry==24.6.1'
       - name: Python syntax compilation
-        run: python -m compileall -q backend tests
+        run: python -m compileall -q backend tools tests
       - name: Offline connector registry and existing research worker unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: AI Brain free-provider fallback regression
+        run: |
+          node --check web/brain.mjs
+          node --check web/supabase-rest.mjs
+          node --check supabase/functions/aevone-brain/core.mjs
+          node tests/brain_fallback_test.mjs
       - name: Lead workspace JavaScript syntax
         run: |
           node --check web/lead.mjs

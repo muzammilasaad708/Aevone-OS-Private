@@ -29,7 +29,12 @@ export class SupabaseApi {
    try{await this.refresh();return this.request(path,{method,body,auth,headers,retry:false});}catch{this.clear();throw new ApiError('Session expired. Please sign in again.',401);}
   }
   const data=await response.json().catch(()=>null);
-  if(!response.ok)throw new ApiError(data?.msg||data?.error_description||data?.message||data?.error||`Request failed (${response.status})`,response.status);
+  if(!response.ok){
+   const message=data?.msg||data?.error_description||data?.message||data?.error||`Request failed (${response.status})`;
+   // Only server-side sanitized provider statuses, never raw upstream bodies/keys.
+   const attempts=Array.isArray(data?.attempts)?data.attempts.filter(x=>typeof x?.provider==='string'&&typeof x?.status==='string').slice(0,4).map(x=>x.provider+': '+x.status).join('; '):'';
+   throw new ApiError(message+(attempts?' Tried: '+attempts:''),response.status);
+  }
   return data;
  }
  async login(email,password) {

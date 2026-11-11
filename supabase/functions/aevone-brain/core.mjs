@@ -66,12 +66,15 @@ export function normalizedModels(provider,raw,{allowPaid=false}={}){
 export function safeError(status){
  if(status===401||status===403)return 'Provider rejected the stored API credential or permissions';
  if(status===402)return 'Provider reports billing or credits required';
+ if(status===400||status===422)return 'Provider rejected this model or request format';
  if(status===404)return 'The chosen model is not available on this provider';
  if(status===429)return 'Provider rate limit reached';
  if(status>=500)return 'Provider temporarily unavailable';
  return 'Provider request could not be completed';
 }
-export function shouldFallback(status){return [404,408,429,500,502,503,504].includes(status);}
+// Failure of one *free* upstream (including an invalid key/model) must not
+// suppress the other authorized free providers. Explicit provider stays strict.
+export function shouldFallback(status){return [400,401,402,403,404,408,422,429,500,502,503,504].includes(status);}
 export function extractText(data){
  const c=data?.choices?.[0]?.message?.content;
  if(typeof c==='string')return c.trim();
@@ -79,5 +82,5 @@ export function extractText(data){
  return '';
 }
 export function cleanAnswer(s){return String(s??'').trim().slice(0,24000);}
-export function providerStatus(providers,ready){return Object.entries(PROVIDERS).map(([id,p])=>({id,name:p.name,tier:p.tier,connected:providers.has(id),available:ready&&providers.has(id)}));}
+export function providerStatus(providers,ready){return Object.entries(PROVIDERS).map(([id,p])=>({id,name:p.name,tier:p.tier,connected:providers.has(id),available:false}));}
 export function originAllowed(origin,allowlist){return !origin || allowlist.has(origin);}

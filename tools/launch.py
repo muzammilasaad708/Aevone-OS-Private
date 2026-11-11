@@ -2,6 +2,7 @@
 import functools
 import http.server
 import sys
+import subprocess
 import webbrowser
 from pathlib import Path
 
@@ -24,6 +25,13 @@ class SafeHandler(http.server.SimpleHTTPRequestHandler):
 def main():
     if not (WEB/'config.js').exists():
         sys.exit('Public config.js is missing. Run CONFIGURE_AEVONE_OS.bat first.')
+    # Verified CSC geography cache is persistent and prepared only when missing.
+    # Failed external downloads never block the existing dashboard indefinitely.
+    try:
+        subprocess.run([sys.executable, str(ROOT / 'tools' / 'build_csc_geography.py')],
+                       timeout=40, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        print('CSC geography unavailable; manual-location fallback remains enabled.')
     handler = functools.partial(SafeHandler, directory=str(WEB))
     try:
         httpd = http.server.ThreadingHTTPServer(('127.0.0.1', 4173), handler)
