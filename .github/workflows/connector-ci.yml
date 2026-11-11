@@ -61,6 +61,21 @@ jobs:
           node --check web/supabase-rest.mjs
           node --check supabase/functions/aevone-brain/core.mjs
           node tests/brain_fallback_test.mjs
+      - name: Verify immutable CSC release download and global city coverage
+        run: |
+          python tools/build_csc_geography.py
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest=json.loads(Path('web/csc/manifest.json').read_text(encoding='utf-8'))
+          assert manifest['countries'] >= 195, manifest
+          assert manifest['states'] >= 5000, manifest
+          assert manifest['cities'] >= 145000, manifest
+          turkey=json.loads(Path('web/csc/TR.json').read_text(encoding='utf-8'))
+          assert len(turkey['states']) >= 81, len(turkey['states'])
+          assert any('istanbul' in s['name'].casefold() or 'i̇stanbul' in s['name'].casefold() for s in turkey['states'])
+          print('CSC real release verified:',manifest)
+          PY
       - name: Lead workspace JavaScript syntax
         run: |
           node --check web/lead.mjs
