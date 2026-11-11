@@ -99,7 +99,7 @@ def write_snapshot(index, directory=OUT):
             temp_path = Path(f.name)
             json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
         temp_path.replace(target)
-    manifest = {"version": VERSION, "countries": len(index),
+    manifest = {"version": VERSION, "schema_version": 2, "countries": len(index),
                 "states": sum(len(x["states"]) for x in index.values()),
                 "cities": sum(sum(len(s["cities"]) for s in x["states"]) + len(x["unassigned"])
                               for x in index.values()),
@@ -112,7 +112,7 @@ def write_snapshot(index, directory=OUT):
 def ready(directory=OUT):
     try:
         manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
-        return (manifest.get("version") == VERSION and
+        return (manifest.get("version") == VERSION and manifest.get("schema_version") == 2 and
                 manifest.get("source_export_sha256") == EXPECTED_SHA256 and
                 len(list(directory.glob("??.json"))) >= 195)
     except (OSError, ValueError):
