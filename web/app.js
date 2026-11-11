@@ -189,7 +189,7 @@ root.addEventListener('click',async event=>{
  if(button.dataset.researchId){leadResearch.active=button.dataset.researchId;render();return;}
  if(button.dataset.leadAct==='new'){leadResearch.active=null;render();return;}
  if(button.dataset.leadAct==='refresh'){try{await leadResearch.refresh();render();}catch(e){alert(e.message,'error');}return;}
- if(button.dataset.leadAct==='dispatch'){try{const status=await leadResearch.dispatch(leadResearch.active);alert(status==='requested'?'GitHub worker requested. Status will refresh automatically.':'Instant dispatch not confirmed: '+status+'. Scheduled fallback remains enabled.',status==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
+ if(button.dataset.leadAct==='dispatch'){try{const status=await leadResearch.dispatch(leadResearch.active);alert(status==='requested'?'Supabase instant worker launched. Status will refresh automatically.':'Supabase instant research unavailable: '+status+'. Check function logs.',status==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
  if(button.dataset.saveResult!==undefined){try{const name=await leadResearch.save(Number(button.dataset.saveResult));await loadLeads();alert(name+' saved as unverified.','success');}catch(e){alert(e.message,'error');}return;}
  if(lead){await openLead(lead);return;}
  if(button.dataset.provider){state.modal=button.dataset.provider;renderVaultModal();return;}
@@ -254,7 +254,7 @@ root.addEventListener('submit',async event=>{
   }
   if(form.id==='research-form'){try{
    for(const key of ['country','city','state','stateManual','cityManual','industry','quantity'])if(values[key]!==undefined)leadResearch.filters[key]=String(values[key]);
-   await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'On-demand research requested. Results will update automatically.':'Research saved. '+leadResearch.dispatchHelp(),leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
+   await leadResearch.submit(String(values.query||''));alert(leadResearch.lastDispatch==='requested'?'Supabase research started. Results will update automatically.':'Research saved. '+leadResearch.dispatchHelp(),leadResearch.lastDispatch==='requested'?'success':'warning');}catch(e){alert(e.message,'error');}return;}
   if(form.id==='lead-form'){
    const body={name:String(values.name||'').trim(),city:String(values.city||'').trim(),country:String(values.country||'').trim(),website:String(values.website||'').trim(),source_url:String(values.source_url||'').trim(),source_name:String(values.source_name||'').trim(),notes:String(values.notes||'').trim(),created_by:state.user.id,status:'unverified'};
    if(!body.name)throw new ApiError('Company name required');
