@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { countries, stateOptions, cityOptions, industries, loadCountryGeography, hasCountryGeography } from '../web/geography.mjs';
+import { countries, stateOptions, cityOptions, industries, loadCountryGeography, hasCountryGeography, cityPoint } from '../web/geography.mjs';
 import { LeadWorkspace } from '../web/lead.mjs';
 
 // Strict country-count regression: 195 recognized states (including 2 observers).
@@ -78,11 +78,12 @@ console.log('195 country options, 5 filters, regional suggestions and instant di
 const originalFetch=globalThis.fetch;
 try{
  globalThis.fetch=async()=>new Response(JSON.stringify({
-  code:'IT',country:'Italy',states:[{name:'Abruzzo',cities:["L'Aquila",'Pescara']}],unassigned:[]
+  code:'IT',country:'Italy',states:[{name:'Abruzzo',cities:["L'Aquila",'Pescara'],points:{"L'Aquila":[42.35,13.4]}}],unassigned:[]
  }),{status:200,headers:{'Content-Type':'application/json'}});
  assert.equal(await loadCountryGeography('IT'),true);
  assert.equal(hasCountryGeography('IT'),true);
  assert.deepEqual(stateOptions('IT'),['Abruzzo']);
  assert.deepEqual(cityOptions('IT','Abruzzo'),["L'Aquila",'Pescara']);
+ assert.deepEqual(cityPoint('IT','Abruzzo',"L'Aquila"),{country_code:'IT',city:"L'Aquila",latitude:42.35,longitude:13.4});
 }finally{globalThis.fetch=originalFetch;}
 console.log('CSC snapshot correctly replaces incomplete manual suggestions.');
